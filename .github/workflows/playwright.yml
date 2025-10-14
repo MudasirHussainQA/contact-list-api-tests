@@ -67,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1/3, 2/3, 3/3]
+        shard: [1, 2, 3]
     
     steps:
       - name: 📥 Checkout repository
@@ -85,8 +85,8 @@ jobs:
       - name: 🎭 Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-      - name: 🧪 Run UI tests (Shard ${{ matrix.shard }})
-        run: npx playwright test --project=ui-tests-chromium --shard=${{ matrix.shard }}
+      - name: 🧪 Run UI tests (Shard ${{ matrix.shard }}/3)
+        run: npx playwright test --project=ui-tests-chromium --shard=${{ matrix.shard }}/3
         env:
           CI: true
 
@@ -94,7 +94,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ui-test-results-${{ matrix.shard }}
+          name: ui-test-results-shard-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
