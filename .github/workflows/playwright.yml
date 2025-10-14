@@ -54,9 +54,7 @@ jobs:
         if: always()
         with:
           name: api-test-results
-          path: |
-            playwright-report/
-            test-results/
+          path: test-results/
           retention-days: 7
 
   # Job 2: UI Tests (Parallel execution)
@@ -95,9 +93,7 @@ jobs:
         if: always()
         with:
           name: ui-test-results-shard-${{ matrix.shard }}
-          path: |
-            playwright-report/
-            test-results/
+          path: test-results/
           retention-days: 7
 
   # Job 3: Test Report Generation
@@ -125,7 +121,13 @@ jobs:
         run: npm ci
 
       - name: 📊 Merge test reports
-        run: npx playwright merge-reports --reporter html ./all-test-results/*/playwright-report
+        run: |
+          echo "📁 Checking downloaded artifacts structure:"
+          ls -la ./all-test-results/
+          find ./all-test-results -type f | head -20
+          
+          # Merge all test results
+          npx playwright merge-reports --reporter html ./all-test-results/
 
       - name: 📤 Upload merged report
         uses: actions/upload-artifact@v4
