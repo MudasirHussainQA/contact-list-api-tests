@@ -107,10 +107,17 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
+      - name: 📋 List available artifacts
+        run: |
+          echo "📊 Job status summary:"
+          echo "API Tests: ${{ needs.api-tests.result }}"
+          echo "UI Tests: ${{ needs.ui-tests.result }}"
+
       - name: 📥 Download all test results
         uses: actions/download-artifact@v4
         with:
           path: all-test-results
+        continue-on-error: true
 
       - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
@@ -122,12 +129,34 @@ jobs:
 
       - name: 📊 Merge test reports
         run: |
-          echo "📁 Checking downloaded artifacts structure:"
-          ls -la ./all-test-results/
-          find ./all-test-results -type f | head -20
+          echo "📁 Checking current directory:"
+          pwd
+          ls -la
           
-          # Merge all test results
-          npx playwright merge-reports --reporter html ./all-test-results/
+          echo "📁 Checking if all-test-results exists:"
+          if [ -d "./all-test-results" ]; then
+            echo "✅ all-test-results directory found"
+            ls -la ./all-test-results/
+            find ./all-test-results -type f | head -20
+            
+            # Check if we have any test result files
+            if find ./all-test-results -name "*.jsonl" -o -name "*.json" | grep -q .; then
+              echo "✅ Test result files found, merging reports..."
+              npx playwright merge-reports --reporter html ./all-test-results/
+            else
+              echo "⚠️ No test result files found, creating basic report..."
+              mkdir -p playwright-report
+              echo "<h1>No test results to merge</h1>" > playwright-report/index.html
+            fi
+          else
+            echo "❌ all-test-results directory not found"
+            echo "📁 Available directories:"
+            ls -la
+            
+            # Create a basic report if no artifacts
+            mkdir -p playwright-report
+            echo "<h1>No test artifacts downloaded</h1>" > playwright-report/index.html
+          fi
 
       - name: 📤 Upload merged report
         uses: actions/upload-artifact@v4
