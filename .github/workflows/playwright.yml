@@ -1,0 +1,208 @@
+name: 🎭 Playwright Test Suite
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test type to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - api
+          - ui
+          - smoke
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  # Job 1: API Tests (Fast feedback)
+  api-tests:
+    name: 🔧 API Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🧪 Run API tests
+        run: npm run test:api
+        env:
+          CI: true
+
+      - name: 📊 Upload API test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-test-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # Job 2: UI Tests (Parallel execution)
+  ui-tests:
+    name: 🖥️ UI Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/3, 2/3, 3/3]
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🎭 Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: 🧪 Run UI tests (Shard ${{ matrix.shard }})
+        run: npx playwright test --project=ui-tests-chromium --shard=${{ matrix.shard }}
+        env:
+          CI: true
+
+      - name: 📊 Upload UI test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-test-results-${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # Job 3: Test Report Generation
+  test-report:
+    name: 📈 Generate Test Report
+    runs-on: ubuntu-latest
+    needs: [api-tests, ui-tests]
+    if: always()
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📥 Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          path: all-test-results
+
+      - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 📊 Merge test reports
+        run: npx playwright merge-reports --reporter html ./all-test-results/*/playwright-report
+
+      - name: 📤 Upload merged report
+        uses: actions/upload-artifact@v4
+        with:
+          name: merged-playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+      - name: 🌐 Deploy report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./playwright-report
+          destination_dir: test-reports/${{ github.run_number }}
+
+  # Job 4: Notifications & Metrics
+  notify:
+    name: 📢 Notify Results
+    runs-on: ubuntu-latest
+    needs: [api-tests, ui-tests, test-report]
+    if: always()
+    
+    steps:
+      - name: 📊 Calculate test results
+        id: test-results
+        run: |
+          API_RESULT="${{ needs.api-tests.result }}"
+          UI_RESULT="${{ needs.ui-tests.result }}"
+          
+          if [[ "$API_RESULT" == "success" && "$UI_RESULT" == "success" ]]; then
+            echo "status=✅ All tests passed" >> $GITHUB_OUTPUT
+            echo "color=good" >> $GITHUB_OUTPUT
+          elif [[ "$API_RESULT" == "failure" || "$UI_RESULT" == "failure" ]]; then
+            echo "status=❌ Tests failed" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+          else
+            echo "status=⚠️ Tests cancelled or skipped" >> $GITHUB_OUTPUT
+            echo "color=warning" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 📢 Slack notification
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: custom
+          custom_payload: |
+            {
+              "text": "${{ steps.test-results.outputs.status }}",
+              "attachments": [{
+                "color": "${{ steps.test-results.outputs.color }}",
+                "fields": [{
+                  "title": "Repository",
+                  "value": "${{ github.repository }}",
+                  "short": true
+                }, {
+                  "title": "Branch",
+                  "value": "${{ github.ref_name }}",
+                  "short": true
+                }, {
+                  "title": "Commit",
+                  "value": "${{ github.sha }}",
+                  "short": true
+                }, {
+                  "title": "Author",
+                  "value": "${{ github.actor }}",
+                  "short": true
+                }, {
+                  "title": "API Tests",
+                  "value": "${{ needs.api-tests.result }}",
+                  "short": true
+                }, {
+                  "title": "UI Tests", 
+                  "value": "${{ needs.ui-tests.result }}",
+                  "short": true
+                }]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

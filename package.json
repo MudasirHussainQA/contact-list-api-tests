@@ -1,0 +1,36 @@
+{
+  "name": "contact-list-api-tests",
+  "version": "1.0.0",
+  "scripts": {
+    "setup": "npm install && npx playwright install chromium",
+    "test": "playwright test",
+    "test:api": "playwright test --project=api-tests",
+    "test:ui": "playwright test --project=ui-tests-chromium",
+    "test:headed": "playwright test --project=ui-tests-chromium --headed",
+    "test:debug": "playwright test --project=ui-tests-chromium --debug",
+    "test:parallel": "playwright test --workers=4",
+    "test:staging": "node scripts/test-runner.js --env=staging",
+    "test:production": "node scripts/test-runner.js --env=production",
+    "test:smoke": "node scripts/test-runner.js --type=smoke",
+    "test:ci": "playwright test --reporter=github",
+    "report": "playwright show-report",
+    "install:browsers": "npx playwright install chromium",
+    "lint": "eslint . --ext .ts,.js",
+    "format": "prettier --write \"**/*.{ts,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,js,json,md}\""
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^9.8.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

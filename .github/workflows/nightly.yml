@@ -1,0 +1,112 @@
+name: 🌙 Nightly Full Test Suite
+
+on:
+  schedule:
+    # Run every night at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  # Cross-browser testing (nightly only)
+  cross-browser-tests:
+    name: 🌐 Cross-Browser Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🎭 Install Playwright browsers
+        run: npx playwright install ${{ matrix.browser }} --with-deps
+
+      - name: 🧪 Run UI tests on ${{ matrix.browser }}
+        run: npx playwright test --project=ui-tests-${{ matrix.browser }}
+        env:
+          CI: true
+
+      - name: 📊 Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # Performance testing
+  performance-tests:
+    name: ⚡ Performance Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🎭 Install Playwright
+        run: npx playwright install chromium --with-deps
+
+      - name: ⚡ Run performance tests
+        run: |
+          # Add performance test command here
+          echo "Performance tests would run here"
+          # npx playwright test --grep "@performance"
+
+  # Security scanning
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔍 Run npm audit
+        run: npm audit --audit-level high
+
+      - name: 🛡️ Run CodeQL analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: 🔍 Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+
+  # Nightly report
+  nightly-report:
+    name: 📊 Nightly Report
+    runs-on: ubuntu-latest
+    needs: [cross-browser-tests, performance-tests, security-scan]
+    if: always()
+    
+    steps:
+      - name: 📊 Generate nightly summary
+        run: |
+          echo "## 🌙 Nightly Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "**Cross-browser tests**: ${{ needs.cross-browser-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Performance tests**: ${{ needs.performance-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Security scan**: ${{ needs.security-scan.result }}" >> $GITHUB_STEP_SUMMARY
