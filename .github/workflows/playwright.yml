@@ -166,12 +166,29 @@ jobs:
           retention-days: 30
 
       - name: 🌐 Deploy report to GitHub Pages
+        id: deploy-pages
         uses: peaceiris/actions-gh-pages@v3
         if: github.ref == 'refs/heads/main'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./playwright-report
           destination_dir: test-reports/${{ github.run_number }}
+        continue-on-error: true
+
+      - name: 📋 Pages deployment status
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ "${{ steps.deploy-pages.outcome }}" == "success" ]; then
+            echo "✅ GitHub Pages deployment successful!"
+            echo "📊 Report available at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/test-reports/${{ github.run_number }}/"
+          else
+            echo "⚠️ GitHub Pages deployment failed or skipped"
+            echo "💡 To enable GitHub Pages:"
+            echo "   1. Go to repository Settings → Pages"
+            echo "   2. Source: Deploy from a branch"
+            echo "   3. Branch: gh-pages"
+            echo "📊 Report still available as artifact: merged-playwright-report"
+          fi
 
   # Job 4: Notifications & Metrics
   notify:
