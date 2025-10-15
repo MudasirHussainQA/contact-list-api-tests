@@ -1,18 +1,5 @@
 import { faker } from '@faker-js/faker';
-
-interface Contact {
-  firstName: string;
-  lastName: string;
-  birthdate: string;
-  email: string;
-  phone: string;
-  street1: string;
-  street2: string;
-  city: string;
-  stateProvince: string;
-  postalCode: string;
-  country: string;
-}
+import { Contact } from '../types/api.types';
 
 export class ContactFactory {
   /**

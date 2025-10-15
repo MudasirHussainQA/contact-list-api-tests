@@ -408,8 +408,9 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         expect([405, 404, 400]).toContain(res.status()); // Method Not Allowed, Not Found, or Bad Request
       } catch (error) {
         // Timeout or connection error is also valid rejection of unsupported method
-        console.log('Unsupported method rejected with error:', error.message);
-        expect(error.message).toMatch(/timeout|disposed|closed/i);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.log('Unsupported method rejected with error:', errorMessage);
+        expect(errorMessage).toMatch(/timeout|disposed|closed/i);
       }
     });
 

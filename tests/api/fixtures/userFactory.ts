@@ -1,11 +1,5 @@
 import { faker } from '@faker-js/faker';
-
-interface User {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-}
+import { User } from '../types/api.types';
 
 export class UserFactory {
   /**
