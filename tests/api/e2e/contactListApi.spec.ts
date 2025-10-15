@@ -3,6 +3,7 @@ import { UserClient } from '../clients/userClient';
 import { ContactClient } from '../clients/contactClient';
 import { UserFactory } from '../fixtures/userFactory';
 import { ContactFactory } from '../fixtures/contactFactory';
+import { HTTP_STATUS } from '../constants/api.constants';
 import { faker } from '@faker-js/faker';
 
 test('Full E2E Contact List API Test - Design Pattern with Dynamic Data', async ({ request }) => {
@@ -33,7 +34,7 @@ test('Full E2E Contact List API Test - Design Pattern with Dynamic Data', async 
   };
 
   res = await contactClient.add(contact);
-  expect(res.status()).toBe(201);
+  expect(res.status()).toBe(HTTP_STATUS.CREATED);
   const newContact = await res.json();
   const contactId = newContact._id;
 
@@ -97,7 +98,7 @@ test.describe('Contact Management API Tests', () => {
     const contact = ContactFactory.generateValidContact();
 
     const res = await contactClient.add(contact);
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
     const responseBody = await res.json();
     expect(responseBody).toHaveProperty('_id');
@@ -118,7 +119,7 @@ test.describe('Contact Management API Tests', () => {
     const minimalContact = ContactFactory.generateMinimalContact();
 
     const res = await contactClient.add(minimalContact);
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
     const responseBody = await res.json();
     expect(responseBody).toHaveProperty('_id');
@@ -141,7 +142,7 @@ test.describe('Contact Management API Tests', () => {
       expect(responseBody.phone).toBe(specialContact.phone);
       console.log('Special characters accepted in contact fields');
     } else {
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
       console.log('Special characters rejected in contact fields:', errorBody.message);
@@ -156,7 +157,7 @@ test.describe('Contact Management API Tests', () => {
     });
 
     const res = await contactClient.add(invalidContact);
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
     const errorBody = await res.json();
     expect(errorBody).toHaveProperty('message');
@@ -169,7 +170,7 @@ test.describe('Contact Management API Tests', () => {
     };
 
     const res = await contactClient.add(incompleteContact);
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
     const errorBody = await res.json();
     expect(errorBody).toHaveProperty('message');
@@ -191,7 +192,7 @@ test.describe('Contact Management API Tests', () => {
 
     for (const contact of contacts) {
       const res = await contactClient.add(contact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       const createdContact = await res.json();
       createdContactIds.push(createdContact._id);
     }
@@ -220,7 +221,7 @@ test.describe('Contact Management API Tests', () => {
       // If first attempt fails, try with an even simpler contact
       const simpleContact = ContactFactory.generateMinimalContact();
       res = await contactClient.add(simpleContact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       const createdContact = await res.json();
       const contactId = createdContact._id;
 
@@ -234,7 +235,7 @@ test.describe('Contact Management API Tests', () => {
       expect(retrievedContact.lastName).toBe(simpleContact.lastName);
       expect(retrievedContact.email?.toLowerCase()).toBe(simpleContact.email?.toLowerCase());
     } else {
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       const createdContact = await res.json();
       const contactId = createdContact._id;
 
@@ -254,14 +255,14 @@ test.describe('Contact Management API Tests', () => {
     const nonExistentId = '507f1f77bcf86cd799439011'; // Valid ObjectId format
 
     const res = await contactClient.get(nonExistentId);
-    expect(res.status()).toBe(404);
+    expect(res.status()).toBe(HTTP_STATUS.NOT_FOUND);
   });
 
   test('should return 400 for invalid contact ID format', async () => {
     const invalidId = 'invalid-id-format';
 
     const res = await contactClient.get(invalidId);
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
   });
 
   test('should successfully update contact with PUT (full update)', async () => {
@@ -269,7 +270,7 @@ test.describe('Contact Management API Tests', () => {
     
     // Create contact
     let res = await contactClient.add(originalContact);
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
     const createdContact = await res.json();
     const contactId = createdContact._id;
 
@@ -291,7 +292,7 @@ test.describe('Contact Management API Tests', () => {
     
     // Create contact
     let res = await contactClient.add(originalContact);
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
     const createdContact = await res.json();
     const contactId = createdContact._id;
 
@@ -319,7 +320,7 @@ test.describe('Contact Management API Tests', () => {
     
     // Create contact
     let res = await contactClient.add(contact);
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
     const createdContact = await res.json();
     const contactId = createdContact._id;
 
@@ -329,7 +330,7 @@ test.describe('Contact Management API Tests', () => {
     };
 
     res = await contactClient.patch(contactId, invalidUpdate);
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
     const errorBody = await res.json();
     expect(errorBody).toHaveProperty('message');
@@ -341,9 +342,9 @@ test.describe('Contact Management API Tests', () => {
 
     const res = await contactClient.update(nonExistentId, updateData);
     // API behavior: Returns 400 for malformed ObjectId, 404 for valid but non-existent ID
-    expect([400, 404]).toContain(res.status());
+    expect([HTTP_STATUS.BAD_REQUEST, HTTP_STATUS.NOT_FOUND]).toContain(res.status());
     
-    if (res.status() === 400) {
+    if (res.status() === HTTP_STATUS.BAD_REQUEST) {
       console.log('API validates ObjectId format first, returning 400 for malformed ID');
     } else {
       console.log('Valid ObjectId format, returning 404 for non-existent contact');
@@ -355,7 +356,7 @@ test.describe('Contact Management API Tests', () => {
     
     // Create contact
     let res = await contactClient.add(contact);
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
     const createdContact = await res.json();
     const contactId = createdContact._id;
 
@@ -365,14 +366,14 @@ test.describe('Contact Management API Tests', () => {
 
     // Verify contact is deleted by trying to retrieve it
     res = await contactClient.get(contactId);
-    expect(res.status()).toBe(404);
+    expect(res.status()).toBe(HTTP_STATUS.NOT_FOUND);
   });
 
   test('should return 404 when deleting non-existent contact', async () => {
     const nonExistentId = '507f1f77bcf86cd799439011';
 
     const res = await contactClient.delete(nonExistentId);
-    expect(res.status()).toBe(404);
+    expect(res.status()).toBe(HTTP_STATUS.NOT_FOUND);
   });
 
   test('should handle boundary values in contact fields', async () => {
@@ -386,7 +387,7 @@ test.describe('Contact Management API Tests', () => {
       expect(responseBody).toHaveProperty('_id');
       console.log('Boundary contact accepted:', responseBody);
     } else {
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
       console.log('Boundary contact rejected:', errorBody.message);
@@ -401,7 +402,7 @@ test.describe('Contact Management API Tests', () => {
 
     // Create first contact
     let res = await contactClient.add(contact1);
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
     // Try to create second contact with same email
     res = await contactClient.add(contact2);
@@ -410,7 +411,7 @@ test.describe('Contact Management API Tests', () => {
     if (res.ok()) {
       console.log('Duplicate emails allowed in contacts');
     } else {
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
       console.log('Duplicate emails prevented:', errorBody.message);
@@ -422,7 +423,7 @@ test.describe('Contact Management API Tests', () => {
     
     // Create contact
     let res = await contactClient.add(contact);
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
     const createdContact = await res.json();
     const contactId = createdContact._id;
 
@@ -476,11 +477,11 @@ test.describe('Contact API Authorization Tests', () => {
 
     // Try to create contact without token
     let res = await unauthenticatedClient.add(contact);
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     // Try to list contacts without token
     res = await unauthenticatedClient.list();
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
   });
 
   test('should reject contact operations with invalid token', async ({ request }) => {
@@ -489,18 +490,18 @@ test.describe('Contact API Authorization Tests', () => {
 
     // Try to create contact with invalid token
     let res = await invalidTokenClient.add(contact);
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     // Try to list contacts with invalid token
     res = await invalidTokenClient.list();
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
   });
 
   test('should isolate contacts between different users', async ({ request }) => {
     // Create contact for first user
     const contact1 = ContactFactory.generateValidContact();
     let res = await contactClient.add(contact1);
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
     const createdContact1 = await res.json();
 
     // Create second user
@@ -513,7 +514,7 @@ test.describe('Contact API Authorization Tests', () => {
     // Create contact for second user
     const contact2 = ContactFactory.generateValidContact();
     res = await contact2Client.add(contact2);
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
     // Verify first user can only see their contact
     res = await contactClient.list();
@@ -531,7 +532,7 @@ test.describe('Contact API Authorization Tests', () => {
 
     // Verify first user cannot access second user's contact
     res = await contactClient.get(user2Contacts[0]._id);
-    expect(res.status()).toBe(404);
+    expect(res.status()).toBe(HTTP_STATUS.NOT_FOUND);
 
     // Cleanup second user
     await user2Client.delete();
@@ -550,7 +551,7 @@ test.describe('Contact API Authorization Tests', () => {
     
     // Only proceed with logout test if we successfully created a contact
     if (res.ok()) {
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       console.log('Contact created successfully, proceeding with logout test');
     } else {
       // Skip the contact creation part and just test logout behavior
@@ -563,11 +564,11 @@ test.describe('Contact API Authorization Tests', () => {
 
     // Try to access contacts after logout
     res = await contactClient.list();
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     // Try to create contact after logout
     const newContact = ContactFactory.generateReliableContact();
     res = await contactClient.add(newContact);
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
   });
 });

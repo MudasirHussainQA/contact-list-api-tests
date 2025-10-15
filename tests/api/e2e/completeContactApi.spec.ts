@@ -3,6 +3,7 @@ import { UserClient } from '../clients/userClient';
 import { ContactClient } from '../clients/contactClient';
 import { UserFactory } from '../fixtures/userFactory';
 import { ContactFactory } from '../fixtures/contactFactory';
+import { HTTP_STATUS } from '../constants/api.constants';
 import { faker } from '@faker-js/faker';
 
 /**
@@ -47,7 +48,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const contact = ContactFactory.generateReliableContact();
 
       const res = await contactClient.add(contact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       expect(res.headers()['content-type']).toContain('application/json');
 
       const responseBody = await res.json();
@@ -92,7 +93,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const minimalContact = ContactFactory.generateMinimalContact();
 
       const res = await contactClient.add(minimalContact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
       const responseBody = await res.json();
       expect(responseBody).toHaveProperty('_id');
@@ -109,7 +110,7 @@ test.describe('Complete Contact Management API Tests', () => {
       };
 
       const res = await contactClient.add(invalidContact);
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
@@ -126,9 +127,9 @@ test.describe('Complete Contact Management API Tests', () => {
       const res = await contactClient.add(invalidContact);
       
       // API behavior: Missing lastName might return 401 (unauthorized) instead of 400 (bad request)
-      expect([400, 401]).toContain(res.status());
+      expect([HTTP_STATUS.BAD_REQUEST, HTTP_STATUS.UNAUTHORIZED]).toContain(res.status());
       
-      if (res.status() === 400) {
+      if (res.status() === HTTP_STATUS.BAD_REQUEST) {
         const errorBody = await res.json();
         expect(errorBody).toHaveProperty('message');
         expect(errorBody.message).toMatch(/lastName|last name/i);
@@ -152,7 +153,7 @@ test.describe('Complete Contact Management API Tests', () => {
         const contact = ContactFactory.generateReliableContact({ email: invalidEmail });
         const res = await contactClient.add(contact);
         
-        expect(res.status()).toBe(400);
+        expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
         const errorBody = await res.json();
         expect(errorBody).toHaveProperty('message');
         expect(errorBody.message).toMatch(/email/i);
@@ -171,7 +172,7 @@ test.describe('Complete Contact Management API Tests', () => {
         const contact = ContactFactory.generateReliableContact({ phone: invalidPhone });
         const res = await contactClient.add(contact);
         
-        expect(res.status()).toBe(400);
+        expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
         const errorBody = await res.json();
         expect(errorBody).toHaveProperty('message');
         expect(errorBody.message).toMatch(/phone/i);
@@ -191,12 +192,12 @@ test.describe('Complete Contact Management API Tests', () => {
         const res = await contactClient.add(contact);
         
         // API behavior: Some date formats are accepted, others rejected
-        if (res.status() === 400) {
+        if (res.status() === HTTP_STATUS.BAD_REQUEST) {
           const errorBody = await res.json();
           expect(errorBody).toHaveProperty('message');
         } else {
           // If API accepts the date, that's also valid behavior
-          expect(res.status()).toBe(201);
+          expect(res.status()).toBe(HTTP_STATUS.CREATED);
         }
       }
     });
@@ -206,7 +207,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const contact = ContactFactory.generateReliableContact();
 
       const res = await unauthenticatedClient.add(contact);
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should reject contact creation with invalid token', async ({ request }) => {
@@ -214,7 +215,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const contact = ContactFactory.generateReliableContact();
 
       const res = await invalidTokenClient.add(contact);
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should handle field length limits according to API constraints', async () => {
@@ -233,7 +234,7 @@ test.describe('Complete Contact Management API Tests', () => {
       };
 
       const res = await contactClient.add(longFieldContact);
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
@@ -244,7 +245,7 @@ test.describe('Complete Contact Management API Tests', () => {
   test.describe('Get Contact List (GET /contacts)', () => {
     test('should return empty array when no contacts exist', async () => {
       const res = await contactClient.list();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
       expect(res.headers()['content-type']).toContain('application/json');
 
       const contacts = await res.json();
@@ -259,14 +260,14 @@ test.describe('Complete Contact Management API Tests', () => {
 
       for (const contact of contactsToCreate) {
         const res = await contactClient.add(contact);
-        expect(res.status()).toBe(201);
+        expect(res.status()).toBe(HTTP_STATUS.CREATED);
         const createdContact = await res.json();
         createdContactIds.push(createdContact._id);
       }
 
       // Retrieve contact list
       const res = await contactClient.list();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       const contactList = await res.json();
       expect(Array.isArray(contactList)).toBeTruthy();
@@ -292,14 +293,14 @@ test.describe('Complete Contact Management API Tests', () => {
       const unauthenticatedClient = new ContactClient(request, '');
 
       const res = await unauthenticatedClient.list();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should isolate contacts between different users', async ({ request }) => {
       // Create contact for first user
       const contact1 = ContactFactory.generateReliableContact();
       let res = await contactClient.add(contact1);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
       // Create second user
       const user2Client = new UserClient(request);
@@ -311,17 +312,17 @@ test.describe('Complete Contact Management API Tests', () => {
       // Create contact for second user
       const contact2 = ContactFactory.generateReliableContact();
       res = await contact2Client.add(contact2);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
       // Verify first user can only see their contact
       res = await contactClient.list();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
       const user1Contacts = await res.json();
       expect(user1Contacts.length).toBe(1);
 
       // Verify second user can only see their contact
       res = await contact2Client.list();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
       const user2Contacts = await res.json();
       expect(user2Contacts.length).toBe(1);
 
@@ -337,14 +338,14 @@ test.describe('Complete Contact Management API Tests', () => {
     test.beforeEach(async () => {
       const contact = ContactFactory.generateReliableContact();
       const res = await contactClient.add(contact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       createdContact = await res.json();
       contactId = createdContact._id;
     });
 
     test('should successfully retrieve contact by valid ID', async () => {
       const res = await contactClient.get(contactId);
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
       expect(res.headers()['content-type']).toContain('application/json');
 
       const retrievedContact = await res.json();
@@ -369,7 +370,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const nonExistentId = '507f1f77bcf86cd799439011'; // Valid ObjectId format
 
       const res = await contactClient.get(nonExistentId);
-      expect(res.status()).toBe(404);
+      expect(res.status()).toBe(HTTP_STATUS.NOT_FOUND);
       
       // Handle empty response body for 404 errors
       const responseText = await res.text();
@@ -388,7 +389,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const invalidId = 'invalid-id-format';
 
       const res = await contactClient.get(invalidId);
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       // Handle non-JSON error responses
       const responseText = await res.text();
@@ -407,7 +408,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const unauthenticatedClient = new ContactClient(request, '');
 
       const res = await unauthenticatedClient.get(contactId);
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should prevent access to other users contacts', async ({ request }) => {
@@ -420,7 +421,7 @@ test.describe('Complete Contact Management API Tests', () => {
 
       // Try to access first user's contact
       const res = await contact2Client.get(contactId);
-      expect(res.status()).toBe(404); // Should not find contact from different user
+      expect(res.status()).toBe(HTTP_STATUS.NOT_FOUND); // Should not find contact from different user
 
       // Cleanup second user
       await user2Client.delete();
@@ -434,7 +435,7 @@ test.describe('Complete Contact Management API Tests', () => {
     test.beforeEach(async () => {
       const contact = ContactFactory.generateReliableContact();
       const res = await contactClient.add(contact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       createdContact = await res.json();
       contactId = createdContact._id;
     });
@@ -443,7 +444,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const updatedContact = ContactFactory.generateReliableContact();
       
       const res = await contactClient.update(contactId, updatedContact);
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
       expect(res.headers()['content-type']).toContain('application/json');
 
       const responseBody = await res.json();
@@ -470,7 +471,7 @@ test.describe('Complete Contact Management API Tests', () => {
       delete updateData.__v;
       
       const res = await contactClient.update(contactId, updateData);
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
@@ -484,7 +485,7 @@ test.describe('Complete Contact Management API Tests', () => {
       };
       
       const res = await contactClient.update(contactId, incompleteUpdate);
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
@@ -503,7 +504,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const updateData = ContactFactory.generateReliableContact();
 
       const res = await unauthenticatedClient.update(contactId, updateData);
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
   });
 
@@ -514,7 +515,7 @@ test.describe('Complete Contact Management API Tests', () => {
     test.beforeEach(async () => {
       const contact = ContactFactory.generateReliableContact();
       const res = await contactClient.add(contact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       createdContact = await res.json();
       contactId = createdContact._id;
     });
@@ -523,7 +524,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const partialUpdate = { firstName: 'UpdatedFirstName' };
       
       const res = await contactClient.patch(contactId, partialUpdate);
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       const updatedContact = await res.json();
       expect(updatedContact._id).toBe(contactId);
@@ -541,7 +542,7 @@ test.describe('Complete Contact Management API Tests', () => {
       };
       
       const res = await contactClient.patch(contactId, partialUpdate);
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       const updatedContact = await res.json();
       expect(updatedContact.firstName).toBe(partialUpdate.firstName);
@@ -556,7 +557,7 @@ test.describe('Complete Contact Management API Tests', () => {
       const partialUpdate = { email: 'invalid-email-format' };
       
       const res = await contactClient.patch(contactId, partialUpdate);
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
@@ -565,7 +566,7 @@ test.describe('Complete Contact Management API Tests', () => {
 
     test('should handle empty patch request', async () => {
       const res = await contactClient.patch(contactId, {});
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
       
       const contact = await res.json();
       // All fields should remain unchanged
@@ -589,39 +590,39 @@ test.describe('Complete Contact Management API Tests', () => {
     test.beforeEach(async () => {
       const contact = ContactFactory.generateReliableContact();
       const res = await contactClient.add(contact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       createdContact = await res.json();
       contactId = createdContact._id;
     });
 
     test('should successfully delete contact', async () => {
       const res = await contactClient.delete(contactId);
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       // Verify contact is deleted by trying to retrieve it
       const getRes = await contactClient.get(contactId);
-      expect(getRes.status()).toBe(404);
+      expect(getRes.status()).toBe(HTTP_STATUS.NOT_FOUND);
     });
 
     test('should return 404 when deleting non-existent contact', async () => {
       const nonExistentId = '507f1f77bcf86cd799439011';
 
       const res = await contactClient.delete(nonExistentId);
-      expect(res.status()).toBe(404);
+      expect(res.status()).toBe(HTTP_STATUS.NOT_FOUND);
     });
 
     test('should return 400 for invalid contact ID format', async () => {
       const invalidId = 'invalid-id-format';
 
       const res = await contactClient.delete(invalidId);
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
     });
 
     test('should reject deletion without authentication', async ({ request }) => {
       const unauthenticatedClient = new ContactClient(request, '');
 
       const res = await unauthenticatedClient.delete(contactId);
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should prevent deletion of other users contacts', async ({ request }) => {
@@ -634,11 +635,11 @@ test.describe('Complete Contact Management API Tests', () => {
 
       // Try to delete first user's contact
       const res = await contact2Client.delete(contactId);
-      expect(res.status()).toBe(404); // Should not find contact from different user
+      expect(res.status()).toBe(HTTP_STATUS.NOT_FOUND); // Should not find contact from different user
 
       // Verify contact still exists for original user
       const getRes = await contactClient.get(contactId);
-      expect(getRes.status()).toBe(200);
+      expect(getRes.status()).toBe(HTTP_STATUS.OK);
 
       // Cleanup second user
       await user2Client.delete();

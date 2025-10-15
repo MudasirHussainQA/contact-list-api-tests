@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { UserClient } from '../clients/userClient';
 import { UserFactory } from '../fixtures/userFactory';
+import { HTTP_STATUS } from '../constants/api.constants';
 import { faker } from '@faker-js/faker';
 
 test.describe('User Signup API Tests', () => {
@@ -10,7 +11,7 @@ test.describe('User Signup API Tests', () => {
 
     const res = await userClient.register(user);
     expect(res.ok()).toBeTruthy();
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
     const responseBody = await res.json();
     expect(responseBody).toHaveProperty('token');
@@ -40,7 +41,7 @@ test.describe('User Signup API Tests', () => {
     const duplicateUser = UserFactory.generateValidUser({ email: user.email });
     res = await userClient.register(duplicateUser);
     expect(res.ok()).toBeFalsy();
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
     const errorBody = await res.json();
     expect(errorBody).toHaveProperty('message');
@@ -57,7 +58,7 @@ test.describe('User Signup API Tests', () => {
 
     const res = await userClient.register(invalidUser);
     expect(res.ok()).toBeFalsy();
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
     const errorBody = await res.json();
     expect(errorBody).toHaveProperty('message');
@@ -72,7 +73,7 @@ test.describe('User Signup API Tests', () => {
 
     const res = await userClient.register(incompleteUser);
     expect(res.ok()).toBeFalsy();
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
     const errorBody = await res.json();
     expect(errorBody).toHaveProperty('message');
@@ -96,7 +97,7 @@ test.describe('User Signup API Tests', () => {
       const res = await userClient.register(user);
       
       expect(res.ok()).toBeFalsy();
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
@@ -127,7 +128,7 @@ test.describe('User Signup API Tests', () => {
         await userClient.login({ email: user.email, password: user.password });
         await userClient.delete();
       } else {
-        expect(res.status()).toBe(400);
+        expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
         const errorBody = await res.json();
         expect(errorBody).toHaveProperty('message');
         console.log(`Weak password "${weakPassword}" rejected:`, errorBody.message);
@@ -170,7 +171,7 @@ test.describe('User Signup API Tests', () => {
         await userClient.login({ email: user.email, password: user.password });
         await userClient.delete();
       } else {
-        expect(res.status()).toBe(400);
+        expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
         console.log(`Special character name rejected: ${nameData.firstName} ${nameData.lastName}`);
       }
     }
@@ -197,7 +198,7 @@ test.describe('User Signup API Tests', () => {
       await userClient.login({ email: longFieldUser.email, password: longFieldUser.password });
       await userClient.delete();
     } else {
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
       console.log('Long field names rejected:', errorBody.message);
@@ -216,7 +217,7 @@ test.describe('User Signup API Tests', () => {
     for (const testUser of emptyFieldTests) {
       const res = await userClient.register(testUser);
       expect(res.ok()).toBeFalsy();
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
@@ -235,7 +236,7 @@ test.describe('User Signup API Tests', () => {
     for (const testUser of nullFieldTests) {
       const res = await userClient.register(testUser);
       expect(res.ok()).toBeFalsy();
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
@@ -273,7 +274,7 @@ test.describe('User Signup API Tests', () => {
         await userClient.login({ email: user2.email, password: user2.password });
         await userClient.delete();
       } else {
-        expect(res.status()).toBe(400);
+        expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
         const errorBody = await res.json();
         expect(errorBody.message).toContain('Email address is already in use');
         console.log(`Email case variation "${emailVariation}" was rejected (case-insensitive)`);
@@ -314,7 +315,7 @@ test.describe('User Signup API Tests', () => {
       await userClient.login({ email: trimmedEmail, password: whitespaceUser.password });
       await userClient.delete();
     } else {
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       console.log('User with whitespace was rejected');
     }
   });
@@ -325,7 +326,7 @@ test.describe('User Signup API Tests', () => {
 
     const res = await userClient.register(user);
     expect(res.ok()).toBeTruthy();
-    expect(res.status()).toBe(201);
+    expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
     const responseBody = await res.json();
     
@@ -380,8 +381,8 @@ test.describe('User Signup API Tests', () => {
 
     expect(successfulResults.length).toBe(1);
     expect(failedResults.length).toBe(1);
-    expect(successfulResults[0].status()).toBe(201);
-    expect(failedResults[0].status()).toBe(400);
+    expect(successfulResults[0].status()).toBe(HTTP_STATUS.CREATED);
+    expect(failedResults[0].status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
     // Cleanup the successful registration
     if (res1.ok()) {
@@ -413,7 +414,7 @@ test.describe('User Signup API Tests', () => {
       await userClient.login({ email: user.email, password: user.password });
       await userClient.delete();
     } else {
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       console.log('Long email rejected:', longEmail);
     }
   });
@@ -431,7 +432,7 @@ test.describe('User Signup API Tests', () => {
     const results = await Promise.all(registrationAttempts);
     
     // Check if any requests were rate limited (429 status)
-    const rateLimitedResults = results.filter(r => r.status() === 429);
+    const rateLimitedResults = results.filter(r => r.status() === HTTP_STATUS.TOO_MANY_REQUESTS);
     const successfulResults = results.filter(r => r.ok());
     
     if (rateLimitedResults.length > 0) {
@@ -519,7 +520,7 @@ test.describe('User Profile Management API Tests', () => {
     };
 
     const res = await userClient.updateProfile(invalidUpdateData);
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
 
     const errorBody = await res.json();
     expect(errorBody).toHaveProperty('message');
@@ -550,11 +551,11 @@ test.describe('User Profile Management API Tests', () => {
 
     // Try to get profile without token
     let res = await unauthenticatedClient.profile();
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     // Try to update profile without token
     res = await unauthenticatedClient.updateProfile({ firstName: 'Test' });
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
   });
 
   test('should reject profile operations with invalid token', async ({ request }) => {
@@ -563,11 +564,11 @@ test.describe('User Profile Management API Tests', () => {
 
     // Try to get profile with invalid token
     let res = await invalidTokenClient.profile();
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     // Try to update profile with invalid token
     res = await invalidTokenClient.updateProfile({ firstName: 'Test' });
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
   });
 
   test('should successfully logout user', async () => {
@@ -576,7 +577,7 @@ test.describe('User Profile Management API Tests', () => {
 
     // Verify token is invalidated by trying to access profile
     const profileRes = await userClient.profile();
-    expect(profileRes.status()).toBe(401);
+    expect(profileRes.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
   });
 
   test('should successfully delete user account', async () => {
@@ -585,7 +586,7 @@ test.describe('User Profile Management API Tests', () => {
 
     // Verify user is deleted by trying to login
     const loginRes = await userClient.login({ email: user.email, password: user.password });
-    expect(loginRes.status()).toBe(401);
+    expect(loginRes.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
   });
 
   test('should handle multiple logout attempts', async () => {
@@ -595,7 +596,7 @@ test.describe('User Profile Management API Tests', () => {
 
     // Second logout attempt should fail (already logged out)
     res = await userClient.logout();
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
   });
 
   test('should handle profile access after logout', async () => {
@@ -605,14 +606,14 @@ test.describe('User Profile Management API Tests', () => {
 
     // Try to access profile after logout
     res = await userClient.profile();
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     // Try to update profile after logout
     res = await userClient.updateProfile({ firstName: 'Test' });
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     // Try to delete account after logout
     res = await userClient.delete();
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
   });
 }); 

@@ -3,6 +3,7 @@ import { UserClient } from '../clients/userClient';
 import { ContactClient } from '../clients/contactClient';
 import { UserFactory } from '../fixtures/userFactory';
 import { ContactFactory } from '../fixtures/contactFactory';
+import { API_ENDPOINTS, HTTP_STATUS } from '../constants/api.constants';
 import { faker } from '@faker-js/faker';
 
 /**
@@ -26,16 +27,16 @@ test.describe('Data Validation & Error Handling API Tests', () => {
       const userClient = new UserClient(request);
       
       const testCases = [
-        { value: '', expectedStatus: 400, description: 'empty firstName' },
-        { value: null, expectedStatus: 400, description: 'null firstName' },
-        { value: undefined, expectedStatus: 400, description: 'undefined firstName' },
-        { value: 'A', expectedStatus: 201, description: 'single character firstName' },
-        { value: 'A'.repeat(20), expectedStatus: 201, description: 'maximum length firstName (20 chars)' },
-        { value: 'A'.repeat(21), expectedStatus: 400, description: 'exceeding maximum length firstName' },
-        { value: 'John-Pierre', expectedStatus: 201, description: 'firstName with hyphen' },
-        { value: "O'Connor", expectedStatus: 201, description: 'firstName with apostrophe' },
-        { value: '123456', expectedStatus: 201, description: 'numeric firstName' },
-        { value: 'José', expectedStatus: 201, description: 'firstName with accent' }
+        { value: '', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'empty firstName' },
+        { value: null, expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'null firstName' },
+        { value: undefined, expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'undefined firstName' },
+        { value: 'A', expectedStatus: HTTP_STATUS.CREATED, description: 'single character firstName' },
+        { value: 'A'.repeat(20), expectedStatus: HTTP_STATUS.CREATED, description: 'maximum length firstName (20 chars)' },
+        { value: 'A'.repeat(21), expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'exceeding maximum length firstName' },
+        { value: 'John-Pierre', expectedStatus: HTTP_STATUS.CREATED, description: 'firstName with hyphen' },
+        { value: "O'Connor", expectedStatus: HTTP_STATUS.CREATED, description: 'firstName with apostrophe' },
+        { value: '123456', expectedStatus: HTTP_STATUS.CREATED, description: 'numeric firstName' },
+        { value: 'José', expectedStatus: HTTP_STATUS.CREATED, description: 'firstName with accent' }
       ];
 
       for (const testCase of testCases) {
@@ -44,11 +45,11 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         
         expect(res.status()).toBe(testCase.expectedStatus);
         
-        if (res.status() === 400) {
+        if (res.status() === HTTP_STATUS.BAD_REQUEST) {
           const errorBody = await res.json();
           expect(errorBody).toHaveProperty('message');
           expect(errorBody.message).toMatch(/firstName|first name/i);
-        } else if (res.status() === 201) {
+        } else if (res.status() === HTTP_STATUS.CREATED) {
           // Cleanup successful registrations
           await userClient.login({ email: user.email, password: user.password });
           await userClient.delete();
@@ -62,13 +63,13 @@ test.describe('Data Validation & Error Handling API Tests', () => {
       const userClient = new UserClient(request);
       
       const testCases = [
-        { value: '', expectedStatus: 400, description: 'empty lastName' },
-        { value: null, expectedStatus: 400, description: 'null lastName' },
-        { value: 'A', expectedStatus: 201, description: 'single character lastName' },
-        { value: 'A'.repeat(20), expectedStatus: 201, description: 'maximum length lastName (20 chars)' },
-        { value: 'A'.repeat(21), expectedStatus: 400, description: 'exceeding maximum length lastName' },
-        { value: 'Van Der Berg', expectedStatus: 201, description: 'lastName with spaces' },
-        { value: 'García-López', expectedStatus: 201, description: 'lastName with hyphen and accent' }
+        { value: '', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'empty lastName' },
+        { value: null, expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'null lastName' },
+        { value: 'A', expectedStatus: HTTP_STATUS.CREATED, description: 'single character lastName' },
+        { value: 'A'.repeat(20), expectedStatus: HTTP_STATUS.CREATED, description: 'maximum length lastName (20 chars)' },
+        { value: 'A'.repeat(21), expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'exceeding maximum length lastName' },
+        { value: 'Van Der Berg', expectedStatus: HTTP_STATUS.CREATED, description: 'lastName with spaces' },
+        { value: 'García-López', expectedStatus: HTTP_STATUS.CREATED, description: 'lastName with hyphen and accent' }
       ];
 
       for (const testCase of testCases) {
@@ -77,10 +78,10 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         
         expect(res.status()).toBe(testCase.expectedStatus);
         
-        if (res.status() === 400) {
+        if (res.status() === HTTP_STATUS.BAD_REQUEST) {
           const errorBody = await res.json();
           expect(errorBody).toHaveProperty('message');
-        } else if (res.status() === 201) {
+        } else if (res.status() === HTTP_STATUS.CREATED) {
           await userClient.login({ email: user.email, password: user.password });
           await userClient.delete();
         }
@@ -91,21 +92,21 @@ test.describe('Data Validation & Error Handling API Tests', () => {
       const userClient = new UserClient(request);
       
       const testCases = [
-        { value: '', expectedStatus: 400, description: 'empty email' },
-        { value: null, expectedStatus: 400, description: 'null email' },
-        { value: 'invalid-email', expectedStatus: 400, description: 'invalid email format' },
-        { value: '@domain.com', expectedStatus: 400, description: 'missing local part' },
-        { value: 'user@', expectedStatus: 400, description: 'missing domain' },
-        { value: 'user@domain', expectedStatus: 400, description: 'missing TLD' },
-        { value: 'user..double@domain.com', expectedStatus: 400, description: 'double dots in local part' },
-        { value: 'user@domain..com', expectedStatus: 400, description: 'double dots in domain' },
-        { value: 'user name@domain.com', expectedStatus: 400, description: 'space in email' },
-        { value: 'test@example.com', expectedStatus: 201, description: 'valid email' },
-        { value: 'user+tag@example.com', expectedStatus: 201, description: 'email with plus sign' },
-        { value: 'user.name@example.com', expectedStatus: 201, description: 'email with dot in local part' },
-        { value: 'a@b.co', expectedStatus: 201, description: 'minimal valid email' },
-        { value: 'a'.repeat(20) + '@example.com', expectedStatus: 201, description: 'long local part' },
-        { value: 'test@' + 'b'.repeat(20) + '.com', expectedStatus: 201, description: 'long domain name' }
+        { value: '', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'empty email' },
+        { value: null, expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'null email' },
+        { value: 'invalid-email', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'invalid email format' },
+        { value: '@domain.com', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'missing local part' },
+        { value: 'user@', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'missing domain' },
+        { value: 'user@domain', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'missing TLD' },
+        { value: 'user..double@domain.com', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'double dots in local part' },
+        { value: 'user@domain..com', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'double dots in domain' },
+        { value: 'user name@domain.com', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'space in email' },
+        { value: 'test@example.com', expectedStatus: HTTP_STATUS.CREATED, description: 'valid email' },
+        { value: 'user+tag@example.com', expectedStatus: HTTP_STATUS.CREATED, description: 'email with plus sign' },
+        { value: 'user.name@example.com', expectedStatus: HTTP_STATUS.CREATED, description: 'email with dot in local part' },
+        { value: 'a@b.co', expectedStatus: HTTP_STATUS.CREATED, description: 'minimal valid email' },
+        { value: 'a'.repeat(20) + '@example.com', expectedStatus: HTTP_STATUS.CREATED, description: 'long local part' },
+        { value: 'test@' + 'b'.repeat(20) + '.com', expectedStatus: HTTP_STATUS.CREATED, description: 'long domain name' }
       ];
 
       for (const testCase of testCases) {
@@ -113,18 +114,18 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         const res = await userClient.register(user);
         
         // API behavior: Some emails that should be valid might be rejected due to length or other constraints
-        if (testCase.expectedStatus === 201 && res.status() === 400) {
+        if (testCase.expectedStatus === 201 && res.status() === HTTP_STATUS.BAD_REQUEST) {
           console.log(`Email "${testCase.value}" was rejected by API (expected 201, got 400) - API has stricter validation`);
           const errorBody = await res.json();
           expect(errorBody).toHaveProperty('message');
         } else {
           expect(res.status()).toBe(testCase.expectedStatus);
           
-          if (res.status() === 400) {
+          if (res.status() === HTTP_STATUS.BAD_REQUEST) {
             const errorBody = await res.json();
             expect(errorBody).toHaveProperty('message');
             expect(errorBody.message).toMatch(/email/i);
-          } else if (res.status() === 201) {
+          } else if (res.status() === HTTP_STATUS.CREATED) {
             await userClient.login({ email: user.email, password: user.password });
             await userClient.delete();
           }
@@ -136,14 +137,14 @@ test.describe('Data Validation & Error Handling API Tests', () => {
       const userClient = new UserClient(request);
       
       const testCases = [
-        { value: '', expectedStatus: 400, description: 'empty password' },
-        { value: null, expectedStatus: 400, description: 'null password' },
-        { value: '123456', expectedStatus: 400, description: 'password too short (6 chars)' },
-        { value: '1234567', expectedStatus: 201, description: 'minimum valid password (7 chars)' },
-        { value: 'password', expectedStatus: 201, description: 'simple password' },
-        { value: 'Password123!', expectedStatus: 201, description: 'complex password' },
-        { value: 'A'.repeat(100), expectedStatus: 201, description: 'very long password' },
-        { value: 'пароль123', expectedStatus: 201, description: 'password with unicode characters' }
+        { value: '', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'empty password' },
+        { value: null, expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'null password' },
+        { value: '123456', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'password too short (6 chars)' },
+        { value: '1234567', expectedStatus: HTTP_STATUS.CREATED, description: 'minimum valid password (7 chars)' },
+        { value: 'password', expectedStatus: HTTP_STATUS.CREATED, description: 'simple password' },
+        { value: 'Password123!', expectedStatus: HTTP_STATUS.CREATED, description: 'complex password' },
+        { value: 'A'.repeat(100), expectedStatus: HTTP_STATUS.CREATED, description: 'very long password' },
+        { value: 'пароль123', expectedStatus: HTTP_STATUS.CREATED, description: 'password with unicode characters' }
       ];
 
       for (const testCase of testCases) {
@@ -152,11 +153,11 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         
         expect(res.status()).toBe(testCase.expectedStatus);
         
-        if (res.status() === 400) {
+        if (res.status() === HTTP_STATUS.BAD_REQUEST) {
           const errorBody = await res.json();
           expect(errorBody).toHaveProperty('message');
           expect(errorBody.message).toMatch(/password/i);
-        } else if (res.status() === 201) {
+        } else if (res.status() === HTTP_STATUS.CREATED) {
           await userClient.login({ email: user.email, password: user.password });
           await userClient.delete();
         }
@@ -187,11 +188,11 @@ test.describe('Data Validation & Error Handling API Tests', () => {
 
     test('should validate contact firstName constraints', async () => {
       const testCases = [
-        { value: '', expectedStatus: 400, description: 'empty firstName' },
-        { value: null, expectedStatus: 400, description: 'null firstName' },
-        { value: 'A', expectedStatus: 201, description: 'single character' },
-        { value: 'A'.repeat(20), expectedStatus: 201, description: 'maximum length (20 chars)' },
-        { value: 'A'.repeat(21), expectedStatus: 400, description: 'exceeding maximum length' }
+        { value: '', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'empty firstName' },
+        { value: null, expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'null firstName' },
+        { value: 'A', expectedStatus: HTTP_STATUS.CREATED, description: 'single character' },
+        { value: 'A'.repeat(20), expectedStatus: HTTP_STATUS.CREATED, description: 'maximum length (20 chars)' },
+        { value: 'A'.repeat(21), expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'exceeding maximum length' }
       ];
 
       for (const testCase of testCases) {
@@ -200,7 +201,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         
         expect(res.status()).toBe(testCase.expectedStatus);
         
-        if (res.status() === 400) {
+        if (res.status() === HTTP_STATUS.BAD_REQUEST) {
           const errorBody = await res.json();
           expect(errorBody).toHaveProperty('message');
         }
@@ -209,8 +210,8 @@ test.describe('Data Validation & Error Handling API Tests', () => {
 
     test('should validate contact email format', async () => {
       const testCases = [
-        { value: 'invalid-email', expectedStatus: 400, description: 'invalid format' },
-        { value: 'test@example.com', expectedStatus: 201, description: 'valid email' }
+        { value: 'invalid-email', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'invalid format' },
+        { value: 'test@example.com', expectedStatus: HTTP_STATUS.CREATED, description: 'valid email' }
         // Note: Empty email might be required in contacts, testing actual API behavior
       ];
 
@@ -220,7 +221,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         
         expect(res.status()).toBe(testCase.expectedStatus);
         
-        if (res.status() === 400) {
+        if (res.status() === HTTP_STATUS.BAD_REQUEST) {
           const errorBody = await res.json();
           expect(errorBody.message).toMatch(/email/i);
         }
@@ -229,10 +230,10 @@ test.describe('Data Validation & Error Handling API Tests', () => {
 
     test('should validate contact phone format', async () => {
       const testCases = [
-        { value: '1234567890', expectedStatus: 201, description: '10 digit phone' },
-        { value: 'abc1234567', expectedStatus: 400, description: 'phone with letters' },
-        { value: '123', expectedStatus: 400, description: 'phone too short' },
-        { value: '1'.repeat(16), expectedStatus: 400, description: 'phone too long (16 chars)' }
+        { value: '1234567890', expectedStatus: HTTP_STATUS.CREATED, description: '10 digit phone' },
+        { value: 'abc1234567', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'phone with letters' },
+        { value: '123', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'phone too short' },
+        { value: '1'.repeat(16), expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'phone too long (16 chars)' }
         // Note: API is strict about phone format - only digits allowed
       ];
 
@@ -242,7 +243,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         
         expect(res.status()).toBe(testCase.expectedStatus);
         
-        if (res.status() === 400) {
+        if (res.status() === HTTP_STATUS.BAD_REQUEST) {
           const errorBody = await res.json();
           expect(errorBody.message).toMatch(/phone/i);
         }
@@ -251,8 +252,8 @@ test.describe('Data Validation & Error Handling API Tests', () => {
 
     test('should validate contact birthdate format', async () => {
       const testCases = [
-        { value: '1990-01-01', expectedStatus: 201, description: 'valid ISO date' },
-        { value: 'invalid-date', expectedStatus: 400, description: 'non-date string' }
+        { value: '1990-01-01', expectedStatus: HTTP_STATUS.CREATED, description: 'valid ISO date' },
+        { value: 'invalid-date', expectedStatus: HTTP_STATUS.BAD_REQUEST, description: 'non-date string' }
         // Note: API is more lenient with date formats than expected
       ];
 
@@ -262,7 +263,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         
         expect(res.status()).toBe(testCase.expectedStatus);
         
-        if (res.status() === 400) {
+        if (res.status() === HTTP_STATUS.BAD_REQUEST) {
           const errorBody = await res.json();
           expect(errorBody).toHaveProperty('message');
         }
@@ -285,7 +286,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
           [fieldInfo.field]: 'A'.repeat(fieldInfo.maxLength + 1)
         });
         const res = await contactClient.add(contact);
-        expect(res.status()).toBe(400);
+        expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
         
         const errorBody = await res.json();
         expect(errorBody.message).toMatch(/longer than.*maximum allowed length/i);
@@ -307,7 +308,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
 
       for (const scenario of errorScenarios) {
         const res = await userClient.register(scenario.data);
-        expect(res.status()).toBe(400);
+        expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
         expect(res.headers()['content-type']).toContain('application/json');
 
         const errorBody = await res.json();
@@ -331,7 +332,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         password: 'wrongpassword'
       });
       
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
       
       // Handle content-type header that might be undefined
       const contentType = res.headers()['content-type'];
@@ -355,7 +356,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
       const unauthenticatedClient = new UserClient(request);
       
       const res = await unauthenticatedClient.profile();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('error');
@@ -372,7 +373,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
       const contactClient = new ContactClient(request, userClient.token);
       const res = await contactClient.get('507f1f77bcf86cd799439011'); // Non-existent ID
       
-      expect(res.status()).toBe(404);
+      expect(res.status()).toBe(HTTP_STATUS.NOT_FOUND);
       
       // Handle content-type header that might be undefined
       const contentType = res.headers()['content-type'];
@@ -401,11 +402,11 @@ test.describe('Data Validation & Error Handling API Tests', () => {
     test('should reject unsupported HTTP methods', async ({ request }) => {
       // Test only one method to avoid timeout issues
       try {
-        const res = await request.fetch('/users', { 
+        const res = await request.fetch(API_ENDPOINTS.USERS.REGISTER, { 
           method: 'PUT',
           timeout: 5000 // 5 second timeout
         });
-        expect([405, 404, 400]).toContain(res.status()); // Method Not Allowed, Not Found, or Bad Request
+        expect([HTTP_STATUS.METHOD_NOT_ALLOWED, HTTP_STATUS.NOT_FOUND, HTTP_STATUS.BAD_REQUEST]).toContain(res.status()); // Method Not Allowed, Not Found, or Bad Request
       } catch (error) {
         // Timeout or connection error is also valid rejection of unsupported method
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -418,16 +419,16 @@ test.describe('Data Validation & Error Handling API Tests', () => {
       const user = UserFactory.generateValidUser();
       
       // Test with GET method (should fail)
-      const getRes = await request.get('/users', { data: user });
+      const getRes = await request.get(API_ENDPOINTS.USERS.REGISTER, { data: user });
       // API returns 200 for GET /users (list users), not 405
-      expect(getRes.status()).toBe(200);
+      expect(getRes.status()).toBe(HTTP_STATUS.OK);
       
       // Test with correct POST method (should work)
-      const postRes = await request.post('/users', { data: user });
-      expect([201, 400]).toContain(postRes.status()); // Success or validation error
+      const postRes = await request.post(API_ENDPOINTS.USERS.REGISTER, { data: user });
+      expect([HTTP_STATUS.CREATED, HTTP_STATUS.BAD_REQUEST]).toContain(postRes.status()); // Success or validation error
       
       // Cleanup if user was created
-      if (postRes.status() === 201) {
+      if (postRes.status() === HTTP_STATUS.CREATED) {
         const userClient = new UserClient(request);
         await userClient.login({ email: user.email, password: user.password });
         await userClient.delete();
@@ -440,7 +441,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
       const user = UserFactory.generateValidUser();
       
       // Test with incorrect Content-Type
-      const res = await request.post('/users', {
+      const res = await request.post(API_ENDPOINTS.USERS.REGISTER, {
         data: JSON.stringify(user),
         headers: {
           'Content-Type': 'text/plain'
@@ -453,16 +454,16 @@ test.describe('Data Validation & Error Handling API Tests', () => {
     test('should accept application/json Content-Type', async ({ request }) => {
       const user = UserFactory.generateValidUser();
       
-      const res = await request.post('/users', {
+      const res = await request.post(API_ENDPOINTS.USERS.REGISTER, {
         data: user,
         headers: {
           'Content-Type': 'application/json'
         }
       });
       
-      expect([201, 400]).toContain(res.status()); // Success or validation error (not content-type error)
+      expect([HTTP_STATUS.CREATED, HTTP_STATUS.BAD_REQUEST]).toContain(res.status()); // Success or validation error (not content-type error)
       
-      if (res.status() === 201) {
+      if (res.status() === HTTP_STATUS.CREATED) {
         // Cleanup
         const userClient = new UserClient(request);
         await userClient.login({ email: user.email, password: user.password });
@@ -477,9 +478,9 @@ test.describe('Data Validation & Error Handling API Tests', () => {
       const userClient = new UserClient(request);
       
       const res = await userClient.register(user);
-      expect([201, 400]).toContain(res.status());
+      expect([HTTP_STATUS.CREATED, HTTP_STATUS.BAD_REQUEST]).toContain(res.status());
       
-      if (res.status() === 201) {
+      if (res.status() === HTTP_STATUS.CREATED) {
         await userClient.login({ email: user.email, password: user.password });
         await userClient.delete();
       }
@@ -520,7 +521,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         
         const res = await userClient.register(user);
         
-        if (res.status() === 201) {
+        if (res.status() === HTTP_STATUS.CREATED) {
           const responseBody = await res.json();
           expect(responseBody.user.firstName).toBe(testCase.firstName);
           expect(responseBody.user.lastName).toBe(testCase.lastName);
@@ -548,7 +549,7 @@ test.describe('Data Validation & Error Handling API Tests', () => {
         
         const res = await userClient.register(user);
         
-        if (res.status() === 201) {
+        if (res.status() === HTTP_STATUS.CREATED) {
           const responseBody = await res.json();
           
           // Verify dangerous characters are handled appropriately

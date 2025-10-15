@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { UserClient } from '../clients/userClient';
 import { UserFactory } from '../fixtures/userFactory';
+import { HTTP_STATUS } from '../constants/api.constants';
 import { faker } from '@faker-js/faker';
 
 /**
@@ -25,7 +26,7 @@ test.describe('Complete User Management API Tests', () => {
 
       const res = await userClient.register(user);
       
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       expect(res.headers()['content-type']).toContain('application/json');
 
       const responseBody = await res.json();
@@ -65,7 +66,7 @@ test.describe('Complete User Management API Tests', () => {
 
       const res = await userClient.register(invalidUser);
       
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
       expect(errorBody.message).toMatch(/firstName|first name/i);
@@ -81,7 +82,7 @@ test.describe('Complete User Management API Tests', () => {
 
       const res = await userClient.register(invalidUser);
       
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
       expect(errorBody.message).toMatch(/lastName|last name/i);
@@ -97,7 +98,7 @@ test.describe('Complete User Management API Tests', () => {
 
       const res = await userClient.register(invalidUser);
       
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
       expect(errorBody.message).toMatch(/email/i);
@@ -113,7 +114,7 @@ test.describe('Complete User Management API Tests', () => {
 
       const res = await userClient.register(invalidUser);
       
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
       expect(errorBody.message).toMatch(/password/i);
@@ -134,7 +135,7 @@ test.describe('Complete User Management API Tests', () => {
         const user = UserFactory.generateValidUser({ email: invalidEmail });
         const res = await userClient.register(user);
         
-        expect(res.status()).toBe(400);
+        expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
         const errorBody = await res.json();
         expect(errorBody).toHaveProperty('message');
         expect(errorBody.message).toMatch(/email/i);
@@ -147,7 +148,7 @@ test.describe('Complete User Management API Tests', () => {
 
       const res = await userClient.register(user);
       
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
       expect(errorBody.message).toMatch(/password.*7/i);
@@ -160,11 +161,11 @@ test.describe('Complete User Management API Tests', () => {
 
       // Register first user
       let res = await userClient.register(user1);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
       // Try to register second user with same email
       res = await userClient.register(user2);
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
@@ -183,11 +184,11 @@ test.describe('Complete User Management API Tests', () => {
 
       // Register first user
       let res = await userClient.register(user1);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
       // Try to register second user with same email in different case
       res = await userClient.register(user2);
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody.message).toContain('Email address is already in use');
@@ -208,7 +209,7 @@ test.describe('Complete User Management API Tests', () => {
       
       // Create test user
       const res = await userClient.register(testUser);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
     });
 
     test.afterEach(async () => {
@@ -227,7 +228,7 @@ test.describe('Complete User Management API Tests', () => {
         password: testUser.password 
       });
       
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
       expect(res.headers()['content-type']).toContain('application/json');
 
       const responseBody = await res.json();
@@ -254,7 +255,7 @@ test.describe('Complete User Management API Tests', () => {
         password: testUser.password 
       });
       
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
       
       // Handle empty response body for 401 errors
       const responseText = await res.text();
@@ -275,7 +276,7 @@ test.describe('Complete User Management API Tests', () => {
         password: 'wrongpassword' 
       });
       
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
       
       // Handle empty response body for 401 errors
       const responseText = await res.text();
@@ -296,7 +297,7 @@ test.describe('Complete User Management API Tests', () => {
       } as any);
       
       // API behavior: Missing email returns 401 instead of 400
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
       
       const responseText = await res.text();
       if (responseText) {
@@ -315,7 +316,7 @@ test.describe('Complete User Management API Tests', () => {
       } as any);
       
       // API behavior: Missing password returns 401 instead of 400
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
       
       const responseText = await res.text();
       if (responseText) {
@@ -334,7 +335,7 @@ test.describe('Complete User Management API Tests', () => {
         password: testUser.password 
       });
       
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
       const responseBody = await res.json();
       expect(responseBody.user.email.toLowerCase()).toBe(testUser.email.toLowerCase());
     });
@@ -364,7 +365,7 @@ test.describe('Complete User Management API Tests', () => {
     test('should successfully retrieve user profile', async () => {
       const res = await userClient.profile();
       
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
       expect(res.headers()['content-type']).toContain('application/json');
 
       const profile = await res.json();
@@ -386,7 +387,7 @@ test.describe('Complete User Management API Tests', () => {
       const unauthenticatedClient = new UserClient(request);
       
       const res = await unauthenticatedClient.profile();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should reject profile request with invalid token', async ({ request }) => {
@@ -394,7 +395,7 @@ test.describe('Complete User Management API Tests', () => {
       invalidTokenClient.token = 'invalid-token-12345';
       
       const res = await invalidTokenClient.profile();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
   });
 
@@ -423,7 +424,7 @@ test.describe('Complete User Management API Tests', () => {
       const updateData = { firstName: 'UpdatedFirstName' };
       
       const res = await userClient.updateProfile(updateData);
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       const updatedProfile = await res.json();
       expect(updatedProfile.firstName).toBe(updateData.firstName);
@@ -435,7 +436,7 @@ test.describe('Complete User Management API Tests', () => {
       const updateData = { lastName: 'UpdatedLastName' };
       
       const res = await userClient.updateProfile(updateData);
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       const updatedProfile = await res.json();
       expect(updatedProfile.firstName).toBe(testUser.firstName); // Should remain unchanged
@@ -450,7 +451,7 @@ test.describe('Complete User Management API Tests', () => {
       };
       
       const res = await userClient.updateProfile(updateData);
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       const updatedProfile = await res.json();
       expect(updatedProfile.firstName).toBe(updateData.firstName);
@@ -462,7 +463,7 @@ test.describe('Complete User Management API Tests', () => {
       const updateData = { email: 'invalid-email-format' };
       
       const res = await userClient.updateProfile(updateData);
-      expect(res.status()).toBe(400);
+      expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
@@ -472,12 +473,12 @@ test.describe('Complete User Management API Tests', () => {
       const unauthenticatedClient = new UserClient(request);
       
       const res = await unauthenticatedClient.updateProfile({ firstName: 'Test' });
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should handle empty update request', async () => {
       const res = await userClient.updateProfile({});
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
       
       const profile = await res.json();
       expect(profile.firstName).toBe(testUser.firstName);
@@ -509,28 +510,28 @@ test.describe('Complete User Management API Tests', () => {
 
     test('should successfully logout user', async () => {
       const res = await userClient.logout();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       // Verify token is invalidated by trying to access profile
       const profileRes = await userClient.profile();
-      expect(profileRes.status()).toBe(401);
+      expect(profileRes.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should reject logout without authentication', async ({ request }) => {
       const unauthenticatedClient = new UserClient(request);
       
       const res = await unauthenticatedClient.logout();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should reject second logout attempt', async () => {
       // First logout should succeed
       let res = await userClient.logout();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       // Second logout should fail
       res = await userClient.logout();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
   });
 
@@ -549,21 +550,21 @@ test.describe('Complete User Management API Tests', () => {
 
     test('should successfully delete user account', async () => {
       const res = await userClient.delete();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       // Verify user is deleted by trying to login
       const loginRes = await userClient.login({ 
         email: testUser.email, 
         password: testUser.password 
       });
-      expect(loginRes.status()).toBe(401);
+      expect(loginRes.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should reject deletion without authentication', async ({ request }) => {
       const unauthenticatedClient = new UserClient(request);
       
       const res = await unauthenticatedClient.delete();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should reject deletion with invalid token', async ({ request }) => {
@@ -571,7 +572,7 @@ test.describe('Complete User Management API Tests', () => {
       invalidTokenClient.token = 'invalid-token';
       
       const res = await invalidTokenClient.delete();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
   });
 });

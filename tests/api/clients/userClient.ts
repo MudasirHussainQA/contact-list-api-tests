@@ -1,5 +1,6 @@
 import { APIRequestContext, APIResponse } from '@playwright/test';
 import { User, LoginCredentials, IUserClient, UserResponse } from '../types/api.types';
+import { API_ENDPOINTS } from '../constants/api.constants';
 
 export class UserClient implements IUserClient {
   readonly requestContext: APIRequestContext;
@@ -10,7 +11,7 @@ export class UserClient implements IUserClient {
   }
 
   async register(user: any): Promise<APIResponse> {
-    return await this.requestContext.post('/users', {
+    return await this.requestContext.post(API_ENDPOINTS.USERS.REGISTER, {
       data: user,
       headers: {
         'Accept': '*/*',
@@ -23,7 +24,7 @@ export class UserClient implements IUserClient {
   }
 
   async login(credentials: any): Promise<APIResponse> {
-    const res = await this.requestContext.post('/users/login', { data: credentials });
+    const res = await this.requestContext.post(API_ENDPOINTS.USERS.LOGIN, { data: credentials });
     if (res.ok()) {
       const body: UserResponse = await res.json();
       this.token = body.token;
@@ -32,26 +33,26 @@ export class UserClient implements IUserClient {
   }
 
   async profile(): Promise<APIResponse> {
-    return await this.requestContext.get('/users/me', { 
+    return await this.requestContext.get(API_ENDPOINTS.USERS.PROFILE, { 
       headers: { Authorization: `Bearer ${this.token}` } 
     });
   }
 
   async updateProfile(updateData: any): Promise<APIResponse> {
-    return await this.requestContext.patch('/users/me', {
+    return await this.requestContext.patch(API_ENDPOINTS.USERS.PROFILE, {
       headers: { Authorization: `Bearer ${this.token}` },
       data: updateData,
     });
   }
 
   async logout(): Promise<APIResponse> {
-    return await this.requestContext.post('/users/logout', { 
+    return await this.requestContext.post(API_ENDPOINTS.USERS.LOGOUT, { 
       headers: { Authorization: `Bearer ${this.token}` } 
     });
   }
 
   async delete(): Promise<APIResponse> {
-    return await this.requestContext.delete('/users/me', { 
+    return await this.requestContext.delete(API_ENDPOINTS.USERS.PROFILE, { 
       headers: { Authorization: `Bearer ${this.token}` } 
     });
   }

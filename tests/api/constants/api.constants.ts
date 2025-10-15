@@ -5,23 +5,54 @@ export const API_ENDPOINTS = {
     LOGIN: '/users/login',
     LOGOUT: '/users/logout',
     PROFILE: '/users/me',
+    DELETE: '/users/me', // Same as profile for DELETE operation
   },
   CONTACTS: {
     BASE: '/contacts',
     BY_ID: (id: string) => `/contacts/${id}`,
+    CREATE: '/contacts',
+    LIST: '/contacts',
+    UPDATE: (id: string) => `/contacts/${id}`,
+    PATCH: (id: string) => `/contacts/${id}`,
+    DELETE: (id: string) => `/contacts/${id}`,
   },
 } as const;
 
 // HTTP Status Codes
 export const HTTP_STATUS = {
+  // Success codes
   OK: 200,
   CREATED: 201,
+  ACCEPTED: 202,
+  NO_CONTENT: 204,
+  
+  // Redirection codes
+  MOVED_PERMANENTLY: 301,
+  FOUND: 302,
+  NOT_MODIFIED: 304,
+  
+  // Client error codes
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   METHOD_NOT_ALLOWED: 405,
+  NOT_ACCEPTABLE: 406,
+  CONFLICT: 409,
+  GONE: 410,
+  LENGTH_REQUIRED: 411,
+  PRECONDITION_FAILED: 412,
+  PAYLOAD_TOO_LARGE: 413,
+  UNSUPPORTED_MEDIA_TYPE: 415,
+  UNPROCESSABLE_ENTITY: 422,
+  TOO_MANY_REQUESTS: 429,
+  
+  // Server error codes
   INTERNAL_SERVER_ERROR: 500,
+  NOT_IMPLEMENTED: 501,
+  BAD_GATEWAY: 502,
+  SERVICE_UNAVAILABLE: 503,
+  GATEWAY_TIMEOUT: 504,
 } as const;
 
 // Field Constraints

@@ -3,6 +3,7 @@ import { UserClient } from '../clients/userClient';
 import { ContactClient } from '../clients/contactClient';
 import { UserFactory } from '../fixtures/userFactory';
 import { ContactFactory } from '../fixtures/contactFactory';
+import { API_ENDPOINTS, HTTP_STATUS } from '../constants/api.constants';
 import { faker } from '@faker-js/faker';
 
 /**
@@ -29,7 +30,7 @@ test.describe('Authentication & Authorization API Tests', () => {
       await userClient.register(user);
       const loginRes = await userClient.login({ email: user.email, password: user.password });
       
-      expect(loginRes.status()).toBe(200);
+      expect(loginRes.status()).toBe(HTTP_STATUS.OK);
       const loginBody = await loginRes.json();
       
       // Validate JWT token structure
@@ -61,7 +62,7 @@ test.describe('Authentication & Authorization API Tests', () => {
       
       // Test authenticated request
       const profileRes = await userClient.profile();
-      expect(profileRes.status()).toBe(200);
+      expect(profileRes.status()).toBe(HTTP_STATUS.OK);
 
       // Cleanup
       await userClient.delete();
@@ -71,7 +72,7 @@ test.describe('Authentication & Authorization API Tests', () => {
       const unauthenticatedClient = new UserClient(request);
       
       const res = await unauthenticatedClient.profile();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('error');
@@ -82,7 +83,7 @@ test.describe('Authentication & Authorization API Tests', () => {
       userClient.token = 'malformed-token-without-bearer-prefix';
       
       const res = await userClient.profile();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should reject requests with invalid JWT token', async ({ request }) => {
@@ -90,7 +91,7 @@ test.describe('Authentication & Authorization API Tests', () => {
       userClient.token = 'invalid.jwt.token';
       
       const res = await userClient.profile();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should reject requests with expired JWT token', async ({ request }) => {
@@ -100,7 +101,7 @@ test.describe('Authentication & Authorization API Tests', () => {
       userClient.token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2MWY5ZjQ4ZjE2NzQyMDAwMTU4YzQxYzMiLCJpYXQiOjE2NDM3MzQ5OTksImV4cCI6MTY0MzczNTAwMH0.expired-token-signature';
       
       const res = await userClient.profile();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
   });
 
@@ -127,23 +128,23 @@ test.describe('Authentication & Authorization API Tests', () => {
     test('should maintain session across multiple requests', async () => {
       // Make multiple authenticated requests
       let res = await userClient.profile();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       res = await userClient.profile();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       res = await userClient.updateProfile({ firstName: 'UpdatedName' });
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
     });
 
     test('should invalidate session after logout', async () => {
       // Logout user
       let res = await userClient.logout();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       // Try to access protected resource
       res = await userClient.profile();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should invalidate session after user deletion', async () => {
@@ -151,26 +152,26 @@ test.describe('Authentication & Authorization API Tests', () => {
       
       // Delete user account
       let res = await userClient.delete();
-      expect(res.status()).toBe(200);
+      expect(res.status()).toBe(HTTP_STATUS.OK);
 
       // Try to use the old token
       userClient.token = originalToken;
       res = await userClient.profile();
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should handle concurrent sessions from same user', async ({ request }) => {
       // Create second session for same user
       const userClient2 = new UserClient(request);
       const loginRes = await userClient2.login({ email: testUser.email, password: testUser.password });
-      expect(loginRes.status()).toBe(200);
+      expect(loginRes.status()).toBe(HTTP_STATUS.OK);
 
       // Both sessions should work initially
       let res1 = await userClient.profile();
       let res2 = await userClient2.profile();
       
-      expect(res1.status()).toBe(200);
-      expect(res2.status()).toBe(200);
+      expect(res1.status()).toBe(HTTP_STATUS.OK);
+      expect(res2.status()).toBe(HTTP_STATUS.OK);
 
       // Logout from first session
       await userClient.logout();
@@ -178,11 +179,11 @@ test.describe('Authentication & Authorization API Tests', () => {
       // API behavior: Logout invalidates all sessions for the user
       // So second session should also be invalidated
       res2 = await userClient2.profile();
-      expect(res2.status()).toBe(401);
+      expect(res2.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
 
       // First session should be invalidated
       res1 = await userClient.profile();
-      expect(res1.status()).toBe(401);
+      expect(res1.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
   });
 
@@ -224,8 +225,8 @@ test.describe('Authentication & Authorization API Tests', () => {
       const profile1 = await user1Client.profile();
       const profile2 = await user2Client.profile();
       
-      expect(profile1.status()).toBe(200);
-      expect(profile2.status()).toBe(200);
+      expect(profile1.status()).toBe(HTTP_STATUS.OK);
+      expect(profile2.status()).toBe(HTTP_STATUS.OK);
       
       const profile1Data = await profile1.json();
       const profile2Data = await profile2.json();
@@ -243,8 +244,8 @@ test.describe('Authentication & Authorization API Tests', () => {
       const res1 = await contact1Client.add(contact1);
       const res2 = await contact2Client.add(contact2);
       
-      expect(res1.status()).toBe(201);
-      expect(res2.status()).toBe(201);
+      expect(res1.status()).toBe(HTTP_STATUS.CREATED);
+      expect(res2.status()).toBe(HTTP_STATUS.CREATED);
       
       const createdContact1 = await res1.json();
       const createdContact2 = await res2.json();
@@ -253,8 +254,8 @@ test.describe('Authentication & Authorization API Tests', () => {
       const list1 = await contact1Client.list();
       const list2 = await contact2Client.list();
       
-      expect(list1.status()).toBe(200);
-      expect(list2.status()).toBe(200);
+      expect(list1.status()).toBe(HTTP_STATUS.OK);
+      expect(list2.status()).toBe(HTTP_STATUS.OK);
       
       const contacts1 = await list1.json();
       const contacts2 = await list2.json();
@@ -269,29 +270,29 @@ test.describe('Authentication & Authorization API Tests', () => {
       // Create contact for user1
       const contact = ContactFactory.generateReliableContact();
       const res = await contact1Client.add(contact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       const createdContact = await res.json();
 
       // User2 should not be able to access user1's contact
       const accessRes = await contact2Client.get(createdContact._id);
-      expect(accessRes.status()).toBe(404);
+      expect(accessRes.status()).toBe(HTTP_STATUS.NOT_FOUND);
     });
 
     test('should prevent cross-user contact modification', async () => {
       // Create contact for user1
       const contact = ContactFactory.generateReliableContact();
       const res = await contact1Client.add(contact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       const createdContact = await res.json();
 
       // User2 should not be able to update user1's contact
       const updateData = { firstName: 'Hacked' };
       const updateRes = await contact2Client.patch(createdContact._id, updateData);
-      expect(updateRes.status()).toBe(404);
+      expect(updateRes.status()).toBe(HTTP_STATUS.NOT_FOUND);
 
       // Verify contact was not modified
       const getRes = await contact1Client.get(createdContact._id);
-      expect(getRes.status()).toBe(200);
+      expect(getRes.status()).toBe(HTTP_STATUS.OK);
       const unchangedContact = await getRes.json();
       expect(unchangedContact.firstName).toBe(contact.firstName);
     });
@@ -300,16 +301,16 @@ test.describe('Authentication & Authorization API Tests', () => {
       // Create contact for user1
       const contact = ContactFactory.generateReliableContact();
       const res = await contact1Client.add(contact);
-      expect(res.status()).toBe(201);
+      expect(res.status()).toBe(HTTP_STATUS.CREATED);
       const createdContact = await res.json();
 
       // User2 should not be able to delete user1's contact
       const deleteRes = await contact2Client.delete(createdContact._id);
-      expect(deleteRes.status()).toBe(404);
+      expect(deleteRes.status()).toBe(HTTP_STATUS.NOT_FOUND);
 
       // Verify contact still exists for user1
       const getRes = await contact1Client.get(createdContact._id);
-      expect(getRes.status()).toBe(200);
+      expect(getRes.status()).toBe(HTTP_STATUS.OK);
     });
   });
 
@@ -330,7 +331,7 @@ test.describe('Authentication & Authorization API Tests', () => {
         });
         
         // Should either return 401 (invalid credentials) or 400 (bad request)
-        expect([400, 401]).toContain(res.status());
+        expect([HTTP_STATUS.BAD_REQUEST, HTTP_STATUS.UNAUTHORIZED]).toContain(res.status());
       }
     });
 
@@ -362,7 +363,7 @@ test.describe('Authentication & Authorization API Tests', () => {
           await userClient.delete();
         } else {
           // Registration should fail with validation error
-          expect(res.status()).toBe(400);
+          expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
         }
       }
     });
@@ -388,7 +389,7 @@ test.describe('Authentication & Authorization API Tests', () => {
       for (const tamperedToken of tamperedTokens) {
         userClient.token = tamperedToken;
         const res = await userClient.profile();
-        expect(res.status()).toBe(401);
+        expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
       }
 
       // Cleanup with original token
@@ -413,8 +414,8 @@ test.describe('Authentication & Authorization API Tests', () => {
       const results = await Promise.all(loginAttempts);
       
       // Check if any requests were rate limited (429 status)
-      const rateLimitedResults = results.filter(r => r.status() === 429);
-      const unauthorizedResults = results.filter(r => r.status() === 401);
+      const rateLimitedResults = results.filter(r => r.status() === HTTP_STATUS.TOO_MANY_REQUESTS);
+      const unauthorizedResults = results.filter(r => r.status() === HTTP_STATUS.UNAUTHORIZED);
       
       if (rateLimitedResults.length > 0) {
         console.log(`Rate limiting detected: ${rateLimitedResults.length} requests were rate limited`);
@@ -430,7 +431,7 @@ test.describe('Authentication & Authorization API Tests', () => {
       const user = UserFactory.generateValidUser();
 
       // Test with invalid Content-Type
-      const res = await request.post('/users', {
+      const res = await request.post(API_ENDPOINTS.USERS.REGISTER, {
         data: user,
         headers: {
           'Content-Type': 'text/plain' // Invalid content type
@@ -438,7 +439,7 @@ test.describe('Authentication & Authorization API Tests', () => {
       });
 
       // Should reject with 400 or 415 (Unsupported Media Type)
-      expect([400, 415]).toContain(res.status());
+      expect([HTTP_STATUS.BAD_REQUEST, HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE]).toContain(res.status());
     });
 
     test('should handle large payload attacks', async ({ request }) => {
@@ -455,7 +456,7 @@ test.describe('Authentication & Authorization API Tests', () => {
       const res = await userClient.register(oversizedUser);
       
       // Should reject with 400 (Bad Request) or 413 (Payload Too Large)
-      expect([400, 413]).toContain(res.status());
+      expect([HTTP_STATUS.BAD_REQUEST, HTTP_STATUS.PAYLOAD_TOO_LARGE]).toContain(res.status());
     });
   });
 });
