@@ -28,11 +28,24 @@ export default defineConfig({
       },
     },
 
-    // UI Tests - Chrome Only
+    // UI Tests - Chrome Only (default)
     {
       name: 'ui-tests-chromium',
       testDir: './tests/ui/e2e',
       use: { ...devices['Desktop Chrome'] },
+    },
+
+    // Cross-browser UI Tests (for nightly runs)
+    {
+      name: 'ui-tests-firefox',
+      testDir: './tests/ui/e2e',
+      use: { ...devices['Desktop Firefox'] },
+    },
+
+    {
+      name: 'ui-tests-webkit',
+      testDir: './tests/ui/e2e',
+      use: { ...devices['Desktop Safari'] },
     },
   ],
 });

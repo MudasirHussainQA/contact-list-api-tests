@@ -29,8 +29,6 @@ This project includes a comprehensive CI/CD pipeline with multiple workflows for
 
 **Features**:
 - ✅ **Cross-Browser Testing** - Chrome, Firefox, Safari
-- ✅ **Performance Tests** - Load and performance validation
-- ✅ **Security Scanning** - npm audit + CodeQL analysis
 - ✅ **Comprehensive Reports** - Full nightly summary
 
 ## 🛠️ Setup Instructions
