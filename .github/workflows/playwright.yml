@@ -3,8 +3,7 @@ name: 🎭 Playwright Test Suite
 on:
   push:
     branches: [ "main", "develop" ]
-  pull_request:
-    branches: [ "main", "develop" ]
+  # Removed pull_request trigger to avoid duplication with pr-checks.yml
   schedule:
     # Run tests daily at 2 AM UTC
     - cron: '0 2 * * *'

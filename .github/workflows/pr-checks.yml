@@ -45,19 +45,22 @@ jobs:
               comment.body.includes('🔍 PR Quality Check')
             );
             
-            const body = `## 🔍 PR Quality Check Results
+            const jobStatus = '${{ job.status }}';
+            const isSuccess = jobStatus === 'success';
             
-            **Smoke Tests**: ${{ job.status === 'success' && '✅ Passed' || '❌ Failed' }}
+            const body = \`## 🔍 PR Quality Check Results
+            
+            **Smoke Tests**: \${isSuccess ? '✅ Passed' : '❌ Failed'}
             
             📊 **Quick Stats**:
-            - API Tests: ${{ job.status === 'success' && 'All passed' || 'Some failed' }}
-            - Commit: \`${{ github.sha }}\`
-            - Branch: \`${{ github.head_ref }}\`
+            - API Tests: \${isSuccess ? 'All passed' : 'Some failed'}
+            - Commit: \\\`${{ github.sha }}\\\`
+            - Branch: \\\`${{ github.head_ref }}\\\`
             
-            ${job.status === 'success' 
+            \${isSuccess 
               ? '🚀 Ready for full test suite on merge!' 
               : '⚠️ Please fix failing tests before merging.'}
-            `;
+            \`;
             
             if (botComment) {
               await github.rest.issues.updateComment({
