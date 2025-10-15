@@ -17,15 +17,19 @@
     "install:browsers": "npx playwright install chromium",
     "lint": "eslint . --ext .ts,.js",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,js,json,md}\""
+    "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
+    "ai:plan": "echo 'Use Claude with @playwright-test-planner to create comprehensive test plans'",
+    "ai:generate": "echo 'Use Claude with @playwright-test-generator to create automated tests'",
+    "ai:heal": "echo 'Use Claude with @playwright-test-healer to fix failing tests'",
+    "ai:help": "echo 'AI Agents Available: @playwright-test-planner, @playwright-test-generator, @playwright-test-healer'"
   },
   "devDependencies": {
-    "@playwright/test": "^1.53.1",
+    "@playwright/test": "^1.56.0",
     "@types/node": "^20.19.21",
-    "typescript": "^5.9.3",
+    "dotenv": "^16.6.1",
     "eslint": "^8.57.1",
     "prettier": "^3.6.2",
-    "dotenv": "^16.6.1"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@faker-js/faker": "^9.8.0"

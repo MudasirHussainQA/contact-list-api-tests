@@ -31,6 +31,14 @@ npm run test:debug       # Debug mode
 npm run report
 ```
 
+### 🤖 AI-Powered Testing
+```bash
+npm run ai:help        # View available AI agents
+npm run ai:plan        # Get test planning guidance
+npm run ai:generate    # Get test generation guidance
+npm run ai:heal        # Get test healing guidance
+```
+
 ## Folder Structure
 
 ### API Tests
@@ -57,6 +65,16 @@ npm run report
 3. **Single Responsibility Principle** - Separate clients for different API endpoints
 4. **Inheritance** - BasePage for common page functionality
 5. **Composition** - Page objects composed in test files
+
+## 🤖 AI-Powered Testing (NEW!)
+
+This framework now includes **Playwright AI Agents** - revolutionary AI-powered testing capabilities:
+
+- 🧠 **Planner Agent** - Intelligent test scenario discovery
+- ⚡ **Generator Agent** - Automated test code generation  
+- 🔧 **Healer Agent** - Self-healing test maintenance
+
+See [README-AI-AGENTS.md](README-AI-AGENTS.md) for complete AI documentation.
 
 ## Test Features
 
