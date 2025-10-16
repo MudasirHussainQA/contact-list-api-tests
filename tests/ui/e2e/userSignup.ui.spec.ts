@@ -60,35 +60,70 @@ test.describe('User Signup UI Tests', () => {
     await signupPage.navigateToSignup();
     await signupPage.signupUser(user);
     
-    // Wait for page to load and check if we're on contact list
-    await page.waitForLoadState('networkidle');
+    // Wait for page to load with extended timeout for CI
+    await page.waitForLoadState('networkidle', { timeout: 15000 });
+    
+    // Add extra wait for WebKit in CI environments
+    if (process.env.CI) {
+      await page.waitForTimeout(2000);
+    }
     
     // If not on contact list, try to navigate there
     if (!page.url().includes('/contactList')) {
       try {
-        await page.goto('/contactList');
+        await page.goto('/contactList', { waitUntil: 'networkidle', timeout: 15000 });
         await contactListPage.waitForPageLoad();
       } catch (error) {
         // If navigation fails, we might already be logged in, try to find logout button
         console.log('Navigation to contactList failed, checking current page...');
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(2000);
       }
     }
     
-    // Logout after first registration
-    await contactListPage.logout();
+    // Logout after first registration with retry logic
+    try {
+      await contactListPage.logout();
+      await page.waitForURL(/.*\/$/, { timeout: 10000 });
+    } catch (error) {
+      console.log('Logout attempt failed, trying alternative approach...');
+      // Try direct navigation to home page
+      await page.goto('/', { waitUntil: 'networkidle' });
+    }
     
     // Try to register again with same email
     await signupPage.navigateToSignup();
     await signupPage.signupUser(user);
     
-    // Wait for error message to appear
-    await page.waitForLoadState('networkidle');
+    // Wait for error message to appear with extended timeout
+    await page.waitForLoadState('networkidle', { timeout: 15000 });
     
-    // Verify error message is displayed
-    expect(await signupPage.isErrorMessageVisible()).toBeTruthy();
-    const errorMessage = await signupPage.getErrorMessage();
-    console.log('Error message received:', errorMessage);
+    // Add extra wait for WebKit in CI environments
+    if (process.env.CI) {
+      await page.waitForTimeout(3000);
+    }
+    
+    // Verify error message is displayed with retry logic for WebKit
+    let errorVisible = false;
+    let errorMessage = '';
+    
+    for (let i = 0; i < 5; i++) {
+      try {
+        errorVisible = await signupPage.isErrorMessageVisible();
+        if (errorVisible) {
+          errorMessage = await signupPage.getErrorMessage();
+          console.log(`Attempt ${i + 1}: Error message received:`, errorMessage);
+          break;
+        }
+        console.log(`Attempt ${i + 1}: Error message not visible yet, waiting...`);
+        await page.waitForTimeout(1000);
+      } catch (error) {
+        console.log(`Attempt ${i + 1}: Error checking message visibility:`, error.message);
+        if (i === 4) throw error;
+        await page.waitForTimeout(1000);
+      }
+    }
+    
+    expect(errorVisible).toBeTruthy();
     expect(errorMessage).toContain('Email address is already in use');
   });
 

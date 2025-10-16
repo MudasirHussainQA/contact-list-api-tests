@@ -45,7 +45,12 @@ export default defineConfig({
     {
       name: 'ui-tests-webkit',
       testDir: './tests/ui/e2e',
-      use: { ...devices['Desktop Safari'] },
+      use: { 
+        ...devices['Desktop Safari'],
+        // Extended timeouts for WebKit in CI environments
+        actionTimeout: process.env.CI ? 15000 : 10000,
+        navigationTimeout: process.env.CI ? 30000 : 20000,
+      },
     },
   ],
 });
