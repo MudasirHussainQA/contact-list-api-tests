@@ -318,19 +318,31 @@ jobs:
               // Multiple patterns to extract metrics from different report formats
               let totalTests = 'N/A', passed = 'N/A', failed = 'N/A', skipped = 'N/A', duration = 'N/A';
               
-              // Pattern 1: Standard Playwright HTML report
-              const totalMatch = htmlContent.match(/(\d+)\s*tests?\s*ran/i) || 
-                                htmlContent.match(/Total:\s*(\d+)/i) ||
-                                htmlContent.match(/>(\d+)\s*total</i);
-              const passedMatch = htmlContent.match(/(\d+)\s*passed/i) ||
-                                 htmlContent.match(/>(\d+)\s*✓</i);
-              const failedMatch = htmlContent.match(/(\d+)\s*failed/i) ||
-                                 htmlContent.match(/>(\d+)\s*✗</i);
-              const skippedMatch = htmlContent.match(/(\d+)\s*skipped/i);
-              const durationMatch = htmlContent.match(/(\d+(?:\.\d+)?(?:ms|s|m))/i);
+              // Pattern 1: Playwright HTML report - look for filter buttons and metadata
+              const allMatch = htmlContent.match(/All\s+(\d+)/i);
+              const passedMatch = htmlContent.match(/Passed\s+(\d+)/i) || 
+                                 htmlContent.match(/✓\s*Passed\s+(\d+)/i) ||
+                                 htmlContent.match(/(\d+)\s*passed/i);
+              const failedMatch = htmlContent.match(/Failed\s+(\d+)/i) || 
+                                 htmlContent.match(/✗\s*Failed\s+(\d+)/i) ||
+                                 htmlContent.match(/(\d+)\s*failed/i);
+              const flakyMatch = htmlContent.match(/Flaky\s+(\d+)/i);
+              const skippedMatch = htmlContent.match(/Skipped\s+(\d+)/i) ||
+                                  htmlContent.match(/(\d+)\s*skipped/i);
+              
+              // Look for total time pattern
+              const durationMatch = htmlContent.match(/Total time:\s*(\d+(?:\.\d+)?[a-z]+)/i) ||
+                                   htmlContent.match(/(\d+(?:\.\d+)?(?:ms|s|m))/i);
+              
+              // Extract values
+              totalTests = allMatch ? allMatch[1] : 'N/A';
+              passed = passedMatch ? passedMatch[1] : 'N/A';
+              failed = failedMatch ? failedMatch[1] : 'N/A';
+              skipped = skippedMatch ? skippedMatch[1] : 'N/A';
+              duration = durationMatch ? durationMatch[1] : 'N/A';
               
               // Pattern 2: Custom HTML report (our fallback)
-              if (!totalMatch && htmlContent.includes('API Tests:') && htmlContent.includes('Cross-Browser Tests:')) {
+              if (!allMatch && htmlContent.includes('API Tests:') && htmlContent.includes('Cross-Browser Tests:')) {
                 // Extract from job status
                 const apiSuccess = htmlContent.includes('API Tests:</strong> success');
                 const browserSuccess = htmlContent.includes('Cross-Browser Tests:</strong> success');
