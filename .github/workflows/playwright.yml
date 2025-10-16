@@ -165,32 +165,18 @@ jobs:
               
               if [ ! -d "playwright-report" ]; then
                 mkdir -p playwright-report
-                cat > playwright-report/index.html << EOF
-<!DOCTYPE html>
-<html>
-<head>
-  <title>🎭 Playwright Test Results</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
-    .header { background: #2196F3; color: white; padding: 20px; border-radius: 8px; }
-    .status { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 8px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>🎭 Playwright Test Results</h1>
-    <p>$(date)</p>
-  </div>
-  <div class="status">
-    <h2>📊 Test Summary</h2>
-    <p><strong>API Tests:</strong> ${{ needs.api-tests.result }}</p>
-    <p><strong>UI Tests:</strong> ${{ needs.ui-tests.result }}</p>
-    <p><strong>Status:</strong> Report generation in progress</p>
-  </div>
-  <p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">🔍 View Workflow Details</a></p>
-</body>
-</html>
-EOF
+                echo '<!DOCTYPE html>' > playwright-report/index.html
+                echo '<html><head><title>🎭 Playwright Test Results</title>' >> playwright-report/index.html
+                echo '<style>body{font-family:Arial,sans-serif;margin:40px;text-align:center}' >> playwright-report/index.html
+                echo '.header{background:#2196F3;color:white;padding:20px;border-radius:8px}' >> playwright-report/index.html
+                echo '.status{margin:20px 0;padding:15px;background:#f5f5f5;border-radius:8px}</style>' >> playwright-report/index.html
+                echo '</head><body><div class="header"><h1>🎭 Playwright Test Results</h1>' >> playwright-report/index.html
+                echo "<p>$(date)</p></div><div class=\"status\"><h2>📊 Test Summary</h2>" >> playwright-report/index.html
+                echo "<p><strong>API Tests:</strong> ${{ needs.api-tests.result }}</p>" >> playwright-report/index.html
+                echo "<p><strong>UI Tests:</strong> ${{ needs.ui-tests.result }}</p>" >> playwright-report/index.html
+                echo '<p><strong>Status:</strong> Report generation in progress</p></div>' >> playwright-report/index.html
+                echo '<p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">🔍 View Workflow Details</a></p>' >> playwright-report/index.html
+                echo '</body></html>' >> playwright-report/index.html
               fi
             fi
           else
@@ -200,31 +186,17 @@ EOF
             
             # Create a basic report if no artifacts
             mkdir -p playwright-report
-            cat > playwright-report/index.html << EOF
-<!DOCTYPE html>
-<html>
-<head>
-  <title>🎭 Playwright Test Results - No Artifacts</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
-    .header { background: #FF9800; color: white; padding: 20px; border-radius: 8px; }
-    .status { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 8px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>🎭 Playwright Test Results</h1>
-    <p>$(date)</p>
-  </div>
-  <div class="status">
-    <h2>⚠️ No Test Artifacts Found</h2>
-    <p><strong>API Tests:</strong> ${{ needs.api-tests.result }}</p>
-    <p><strong>UI Tests:</strong> ${{ needs.ui-tests.result }}</p>
-  </div>
-  <p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">🔍 View Workflow Details</a></p>
-</body>
-</html>
-EOF
+            echo '<!DOCTYPE html>' > playwright-report/index.html
+            echo '<html><head><title>🎭 Playwright Test Results - No Artifacts</title>' >> playwright-report/index.html
+            echo '<style>body{font-family:Arial,sans-serif;margin:40px;text-align:center}' >> playwright-report/index.html
+            echo '.header{background:#FF9800;color:white;padding:20px;border-radius:8px}' >> playwright-report/index.html
+            echo '.status{margin:20px 0;padding:15px;background:#f5f5f5;border-radius:8px}</style>' >> playwright-report/index.html
+            echo '</head><body><div class="header"><h1>🎭 Playwright Test Results</h1>' >> playwright-report/index.html
+            echo "<p>$(date)</p></div><div class=\"status\"><h2>⚠️ No Test Artifacts Found</h2>" >> playwright-report/index.html
+            echo "<p><strong>API Tests:</strong> ${{ needs.api-tests.result }}</p>" >> playwright-report/index.html
+            echo "<p><strong>UI Tests:</strong> ${{ needs.ui-tests.result }}</p>" >> playwright-report/index.html
+            echo '</div><p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">🔍 View Workflow Details</a></p>' >> playwright-report/index.html
+            echo '</body></html>' >> playwright-report/index.html
           fi
 
       - name: 📤 Upload merged report
@@ -484,60 +456,23 @@ EOF
             echo "📎 Uploading HTML report to Slack for failed tests..."
             
             # Create a condensed summary report for Slack
-            cat > slack-summary.html << EOF
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>🎭 Playwright Test Summary - $(date)</title>
-              <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                .header { background: #f44336; color: white; padding: 10px; border-radius: 5px; }
-                .success { color: #4CAF50; }
-                .failure { color: #f44336; }
-                .summary { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0; }
-                .metrics { display: flex; gap: 20px; }
-                .metric { text-align: center; padding: 10px; background: white; border-radius: 5px; }
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <h2>🎭 Playwright Test Results - FAILED</h2>
-                <p>Repository: ${{ github.repository }} | Branch: ${{ github.ref_name }}</p>
-              </div>
-              
-              <div class="summary">
-                <h3>📊 Test Summary</h3>
-                <div class="metrics">
-                  <div class="metric">
-                    <strong>${{ steps.extract-metrics.outputs.total_tests }}</strong><br>
-                    Total Tests
-                  </div>
-                  <div class="metric">
-                    <strong class="success">${{ steps.extract-metrics.outputs.passed_tests }}</strong><br>
-                    Passed
-                  </div>
-                  <div class="metric">
-                    <strong class="failure">${{ steps.extract-metrics.outputs.failed_tests }}</strong><br>
-                    Failed
-                  </div>
-                  <div class="metric">
-                    <strong>${{ steps.extract-metrics.outputs.test_duration }}</strong><br>
-                    Duration
-                  </div>
-                </div>
-              </div>
-              
-              <div class="summary">
-                <h3>🔧 Job Results</h3>
-                <p><strong>API Tests:</strong> ${{ needs.api-tests.result }}</p>
-                <p><strong>UI Tests:</strong> ${{ needs.ui-tests.result }}</p>
-              </div>
-              
-              <p><a href="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/test-reports/${{ github.run_number }}/">📊 View Full Interactive Report</a></p>
-              <p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">🔍 View Workflow Details</a></p>
-            </body>
-            </html>
-            EOF
+            echo '<!DOCTYPE html><html><head><title>🎭 Playwright Test Summary</title>' > slack-summary.html
+            echo '<style>body{font-family:Arial,sans-serif;margin:20px}.header{background:#f44336;color:white;padding:10px;border-radius:5px}' >> slack-summary.html
+            echo '.success{color:#4CAF50}.failure{color:#f44336}.summary{background:#f5f5f5;padding:15px;border-radius:5px;margin:10px 0}' >> slack-summary.html
+            echo '.metrics{display:flex;gap:20px}.metric{text-align:center;padding:10px;background:white;border-radius:5px}</style>' >> slack-summary.html
+            echo '</head><body><div class="header"><h2>🎭 Playwright Test Results - FAILED</h2>' >> slack-summary.html
+            echo "<p>Repository: ${{ github.repository }} | Branch: ${{ github.ref_name }}</p></div>" >> slack-summary.html
+            echo '<div class="summary"><h3>📊 Test Summary</h3><div class="metrics">' >> slack-summary.html
+            echo "<div class=\"metric\"><strong>${{ steps.extract-metrics.outputs.total_tests }}</strong><br>Total Tests</div>" >> slack-summary.html
+            echo "<div class=\"metric\"><strong class=\"success\">${{ steps.extract-metrics.outputs.passed_tests }}</strong><br>Passed</div>" >> slack-summary.html
+            echo "<div class=\"metric\"><strong class=\"failure\">${{ steps.extract-metrics.outputs.failed_tests }}</strong><br>Failed</div>" >> slack-summary.html
+            echo "<div class=\"metric\"><strong>${{ steps.extract-metrics.outputs.test_duration }}</strong><br>Duration</div>" >> slack-summary.html
+            echo '</div></div><div class="summary"><h3>🔧 Job Results</h3>' >> slack-summary.html
+            echo "<p><strong>API Tests:</strong> ${{ needs.api-tests.result }}</p>" >> slack-summary.html
+            echo "<p><strong>UI Tests:</strong> ${{ needs.ui-tests.result }}</p></div>" >> slack-summary.html
+            echo "<p><a href=\"https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/test-reports/${{ github.run_number }}/\">📊 View Full Interactive Report</a></p>" >> slack-summary.html
+            echo "<p><a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">🔍 View Workflow Details</a></p>" >> slack-summary.html
+            echo '</body></html>' >> slack-summary.html
             
             # Use curl to upload file to Slack (requires SLACK_BOT_TOKEN)
             if [ ! -z "${{ secrets.SLACK_BOT_TOKEN }}" ]; then
