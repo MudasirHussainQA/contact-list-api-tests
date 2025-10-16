@@ -1,5 +1,7 @@
 # Contact List Playwright Tests (API + UI with POM Pattern)
 
+> **Latest Update**: Enhanced with comprehensive GitHub Pages reporting and Slack notifications
+
 ## Setup
 
 ```bash
