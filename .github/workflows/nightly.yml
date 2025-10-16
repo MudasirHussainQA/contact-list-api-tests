@@ -125,41 +125,43 @@ jobs:
       - name: 📊 Organize reports - Keep API and Browser Tests Separate
         run: |
           echo "📁 Organizing test reports..."
-          mkdir -p ./api-report ./browser-report
+          mkdir -p ./pages-deploy/nightly-reports/${{ github.run_number }}/{api,browser}
           
-          # Copy API test results
+          # Generate API test report with proper structure
           if [ -d "./all-test-results/api-test-results" ]; then
             echo "✅ Found API test results"
-            cp -r ./all-test-results/api-test-results/* ./api-report/ 2>/dev/null || true
-            npx playwright show-report --reporter html ./api-report 2>/dev/null || true
+            npx playwright merge-reports --reporter html ./pages-deploy/nightly-reports/${{ github.run_number }}/api ./all-test-results/api-test-results
+          else
+            echo "⚠️ No API test results found"
           fi
           
-          # Copy cross-browser test results (merge all browsers)
+          # Generate cross-browser test report by merging all browsers
           if ls -d ./all-test-results/cross-browser-test-results-* 1> /dev/null 2>&1; then
             echo "✅ Found cross-browser test results"
             BROWSER_DIRS=""
             for dir in ./all-test-results/cross-browser-test-results-*/; do
               BROWSER_DIRS="$BROWSER_DIRS $dir"
             done
-            npx playwright merge-reports --reporter html ./browser-report $BROWSER_DIRS
+            npx playwright merge-reports --reporter html ./pages-deploy/nightly-reports/${{ github.run_number }}/browser $BROWSER_DIRS
+          else
+            echo "⚠️ No browser test results found"
           fi
           
           echo "📊 Report structure created:"
-          ls -la ./api-report/ 2>/dev/null | head -5
-          ls -la ./browser-report/ 2>/dev/null | head -5
+          find ./pages-deploy/nightly-reports/${{ github.run_number }}/ -name "index.html" -o -type d | head -10
 
-      - name: 📤 Upload API Report
+      - name: 📤 Upload API Report (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: nightly-api-test-report
-          path: ./api-report/
+          path: ./pages-deploy/nightly-reports/${{ github.run_number }}/api/
           retention-days: 30
 
-      - name: 📤 Upload Browser Tests Report
+      - name: 📤 Upload Browser Tests Report (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: nightly-browser-test-report
-          path: ./browser-report/
+          path: ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
           retention-days: 30
 
       - name: 🌐 Setup GitHub Pages
@@ -167,13 +169,9 @@ jobs:
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
 
-      - name: 📁 Create GitHub Pages structure
+      - name: 📁 Create index.html for nightly reports landing page
         if: github.ref == 'refs/heads/main'
         run: |
-          mkdir -p ./pages-deploy/nightly-reports/${{ github.run_number }}/{api,browser}
-          cp -r ./api-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/api/ 2>/dev/null || true
-          cp -r ./browser-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/ 2>/dev/null || true
-          
           # Create index.html with links to both reports
           cat > ./pages-deploy/nightly-reports/${{ github.run_number }}/index.html << 'EOF'
           <!DOCTYPE html>

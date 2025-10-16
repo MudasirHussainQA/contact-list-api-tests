@@ -128,41 +128,43 @@ jobs:
       - name: 📊 Organize reports - Keep API and UI Separate
         run: |
           echo "📁 Organizing test reports..."
-          mkdir -p ./api-report ./ui-report
+          mkdir -p ./pages-deploy/test-reports/${{ github.run_number }}/{api,ui}
           
-          # Copy API test results
+          # Generate API test report with proper structure
           if [ -d "./all-test-results/api-test-results" ]; then
             echo "✅ Found API test results"
-            cp -r ./all-test-results/api-test-results/* ./api-report/ 2>/dev/null || true
-            npx playwright show-report --reporter html ./api-report 2>/dev/null || true
+            npx playwright merge-reports --reporter html ./pages-deploy/test-reports/${{ github.run_number }}/api ./all-test-results/api-test-results
+          else
+            echo "⚠️ No API test results found"
           fi
           
-          # Copy UI test results (merge shards)
+          # Generate UI test report by merging UI shards
           if ls -d ./all-test-results/ui-test-results-shard-* 1> /dev/null 2>&1; then
             echo "✅ Found UI test result shards"
             SHARD_DIRS=""
             for dir in ./all-test-results/ui-test-results-shard-*/; do
               SHARD_DIRS="$SHARD_DIRS $dir"
             done
-            npx playwright merge-reports --reporter html ./ui-report $SHARD_DIRS
+            npx playwright merge-reports --reporter html ./pages-deploy/test-reports/${{ github.run_number }}/ui $SHARD_DIRS
+          else
+            echo "⚠️ No UI test results found"
           fi
           
           echo "📊 Report structure created:"
-          ls -la ./api-report/ 2>/dev/null | head -5
-          ls -la ./ui-report/ 2>/dev/null | head -5
+          find ./pages-deploy/test-reports/${{ github.run_number }}/ -name "index.html" -o -type d | head -10
 
-      - name: 📤 Upload API Report
+      - name: 📤 Upload API Report (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: api-test-report
-          path: ./api-report/
+          path: ./pages-deploy/test-reports/${{ github.run_number }}/api/
           retention-days: 30
 
-      - name: 📤 Upload UI Report
+      - name: 📤 Upload UI Report (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: ui-test-report
-          path: ./ui-report/
+          path: ./pages-deploy/test-reports/${{ github.run_number }}/ui/
           retention-days: 30
 
       - name: 🌐 Setup GitHub Pages
@@ -170,13 +172,9 @@ jobs:
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
 
-      - name: 📁 Create GitHub Pages structure
+      - name: 📁 Create index.html for reports landing page
         if: github.ref == 'refs/heads/main'
         run: |
-          mkdir -p ./pages-deploy/test-reports/${{ github.run_number }}/{api,ui}
-          cp -r ./api-report/* ./pages-deploy/test-reports/${{ github.run_number }}/api/ 2>/dev/null || true
-          cp -r ./ui-report/* ./pages-deploy/test-reports/${{ github.run_number }}/ui/ 2>/dev/null || true
-          
           # Create index.html with links to both reports
           cat > ./pages-deploy/test-reports/${{ github.run_number }}/index.html << 'EOF'
           <!DOCTYPE html>
