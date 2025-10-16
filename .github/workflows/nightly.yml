@@ -193,13 +193,37 @@ jobs:
           echo "Found $BROWSER_COUNT browser test directories"
           
           if [ $BROWSER_COUNT -gt 0 ]; then
-            echo "✅ Found cross-browser test results"
-            echo "📂 Using Chromium results as browser report..."
-            if [ -d "./all-test-results/cross-browser-test-results-chromium" ]; then
-              cp -r ./all-test-results/cross-browser-test-results-chromium/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
+            echo "✅ Found cross-browser test results - merging all browsers..."
+            
+            # Create merge command with all browser directories
+            MERGE_DIRS=""
+            for browser_dir in ./all-test-results/cross-browser-test-results-*/; do
+              echo "  📂 Adding browser: $browser_dir"
+              MERGE_DIRS="$MERGE_DIRS $browser_dir"
+            done
+            
+            echo "🔄 Running merge-reports..."
+            cd ./all-test-results
+            npx playwright merge-reports --reporter html $MERGE_DIRS
+            cd -
+            
+            # Check if merge was successful
+            if [ -d "./all-test-results/blob-report" ]; then
+              echo "✅ Merge successful, copying merged report..."
+              cp -r ./all-test-results/blob-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
+              rm -rf ./all-test-results/blob-report
             else
-              cp -r ./all-test-results/cross-browser-test-results-*/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
+              echo "⚠️ Merge may have failed, checking for index.html..."
+              # Check if reports were created in root
+              for browser_dir in ./all-test-results/cross-browser-test-results-*/; do
+                if [ -f "$browser_dir/index.html" ]; then
+                  echo "📂 Using browser report as fallback: $browser_dir"
+                  cp -r "$browser_dir"/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
+                  break
+                fi
+              done
             fi
+            
             echo "✅ Browser report organized successfully"
             ls -la ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/ | head -10
           else
@@ -213,90 +237,11 @@ jobs:
           path: ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
           retention-days: 30
 
-  # Job 4: Nightly Report Landing Page
-  nightly-report-page:
-    name: 📄 Create Nightly Report Landing Page
-    runs-on: ubuntu-latest
-    needs: [generate-api-report, generate-browser-report]
-    if: always()
-    
-    steps:
-      - name: 📥 Download API Report
-        uses: actions/download-artifact@v4
-        with:
-          name: nightly-api-test-report
-          path: ./pages-deploy/nightly-reports/${{ github.run_number }}/api
-        continue-on-error: true
-
-      - name: 📥 Download Browser Report
-        uses: actions/download-artifact@v4
-        with:
-          name: nightly-browser-test-report
-          path: ./pages-deploy/nightly-reports/${{ github.run_number }}/browser
-        continue-on-error: true
-
-      - name: 📁 Create index.html for nightly reports landing page
-        run: |
-          mkdir -p ./pages-deploy/nightly-reports/${{ github.run_number }}
-          
-          cat > ./pages-deploy/nightly-reports/${{ github.run_number }}/index.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Nightly Test Reports - Run ${{ github.run_number }}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-              .header { background: #1a237e; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-              .reports { display: flex; gap: 20px; }
-              .report-card { background: white; padding: 20px; border-radius: 8px; flex: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-              .report-card h2 { margin-top: 0; }
-              .report-card a { display: inline-block; margin-top: 10px; padding: 10px 20px; background: #1a237e; color: white; text-decoration: none; border-radius: 4px; }
-              .report-card a:hover { background: #0d1552; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>🌙 Nightly Test Reports - Run #${{ github.run_number }}</h1>
-              <p>Branch: ${{ github.ref_name }} | Commit: ${{ github.sha }}</p>
-            </div>
-            <div class="reports">
-              <div class="report-card">
-                <h2>🔧 API Tests</h2>
-                <p>Automated API testing suite</p>
-                <a href="./api/index.html">📊 View Report</a>
-              </div>
-              <div class="report-card">
-                <h2>🌐 Cross-Browser Tests</h2>
-                <p>UI tests on Chromium, Firefox, Safari</p>
-                <a href="./browser/index.html">📊 View Report</a>
-              </div>
-            </div>
-          </body>
-          </html>
-          EOF
-          
-      - name: 🌐 Setup GitHub Pages
-        uses: actions/configure-pages@v4
-        if: github.ref == 'refs/heads/main'
-        continue-on-error: true
-
-      - name: 📤 Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
-        with:
-          path: ./pages-deploy
-        continue-on-error: true
-
-      - name: 🚀 Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
-        if: github.ref == 'refs/heads/main'
-        continue-on-error: true
-
-  # Job 5: Notifications
+  # Job 4: Notifications
   notify:
     name: 📢 Notify Results
     runs-on: ubuntu-latest
-    needs: [api-tests, cross-browser-tests, generate-api-report, generate-browser-report]
+    needs: [cross-browser-tests, generate-api-report, generate-browser-report]
     if: always()
     
     steps:
@@ -307,16 +252,12 @@ jobs:
           status: custom
           custom_payload: |
             {
-              "text": "🌙 Nightly Test Reports",
+              "text": "🎭 Nightly Test Reports",
               "attachments": [{
-                "color": "#1a237e",
+                "color": "#FF9800",
                 "fields": [{
                   "title": "Repository",
                   "value": "${{ github.repository }}",
-                  "short": true
-                }, {
-                  "title": "Branch",
-                  "value": "${{ github.ref_name }}",
                   "short": true
                 }, {
                   "title": "Run",
@@ -337,10 +278,6 @@ jobs:
                   "url": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/nightly-reports/${{ github.run_number }}/browser/"
                 }, {
                   "type": "button",
-                  "text": "📋 All Reports",
-                  "url": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/nightly-reports/${{ github.run_number }}/"
-                }, {
-                  "type": "button", 
                   "text": "🔍 Workflow",
                   "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                 }]

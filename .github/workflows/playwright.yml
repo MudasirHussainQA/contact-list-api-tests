@@ -196,84 +196,43 @@ jobs:
           echo "Found $SHARD_COUNT UI test shards"
           
           if [ $SHARD_COUNT -gt 0 ]; then
-            echo "✅ Found UI test result shards"
-            echo "📂 Using first shard as complete UI report..."
-            cp -r ./all-test-results/ui-test-results-shard-1/* ./pages-deploy/test-reports/${{ github.run_number }}/ui/
+            echo "✅ Found UI test result shards - merging all shards..."
+            
+            # Create merge command with all shard directories
+            MERGE_DIRS=""
+            for shard_dir in ./all-test-results/ui-test-results-shard-*/; do
+              echo "  📂 Adding shard: $shard_dir"
+              MERGE_DIRS="$MERGE_DIRS $shard_dir"
+            done
+            
+            echo "🔄 Running merge-reports..."
+            cd ./all-test-results
+            npx playwright merge-reports --reporter html $MERGE_DIRS
+            cd -
+            
+            # Check if merge was successful
+            if [ -d "./all-test-results/blob-report" ]; then
+              echo "✅ Merge successful, copying merged report..."
+              cp -r ./all-test-results/blob-report/* ./pages-deploy/test-reports/${{ github.run_number }}/ui/
+              rm -rf ./all-test-results/blob-report
+            else
+              echo "⚠️ Merge may have failed, checking for index.html..."
+              # Check if reports were created in root
+              for shard_dir in ./all-test-results/ui-test-results-shard-*/; do
+                if [ -f "$shard_dir/index.html" ]; then
+                  echo "📂 Using shard report as fallback: $shard_dir"
+                  cp -r "$shard_dir"/* ./pages-deploy/test-reports/${{ github.run_number }}/ui/
+                  break
+                fi
+              done
+            fi
+            
             echo "✅ UI report organized successfully"
             ls -la ./pages-deploy/test-reports/${{ github.run_number }}/ui/ | head -10
           else
             echo "⚠️ No UI test results found"
           fi
-
-      - name: 📤 Upload UI Report (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: ui-test-report
-          path: ./pages-deploy/test-reports/${{ github.run_number }}/ui/
-          retention-days: 30
-
-  # Job 4: Test Report Landing Page
-  test-report-page:
-    name: 📄 Create Report Landing Page
-    runs-on: ubuntu-latest
-    needs: [generate-api-report, generate-ui-report]
-    if: always()
-    
-    steps:
-      - name: 📥 Download API Report
-        uses: actions/download-artifact@v4
-        with:
-          name: api-test-report
-          path: ./pages-deploy/test-reports/${{ github.run_number }}/api
-        continue-on-error: true
-
-      - name: 📥 Download UI Report
-        uses: actions/download-artifact@v4
-        with:
-          name: ui-test-report
-          path: ./pages-deploy/test-reports/${{ github.run_number }}/ui
-        continue-on-error: true
-
-      - name: 📁 Create index.html for reports landing page
-        run: |
-          mkdir -p ./pages-deploy/test-reports/${{ github.run_number }}
-          
-          cat > ./pages-deploy/test-reports/${{ github.run_number }}/index.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Test Reports - Run ${{ github.run_number }}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-              .header { background: #2196F3; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-              .reports { display: flex; gap: 20px; }
-              .report-card { background: white; padding: 20px; border-radius: 8px; flex: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-              .report-card h2 { margin-top: 0; }
-              .report-card a { display: inline-block; margin-top: 10px; padding: 10px 20px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; }
-              .report-card a:hover { background: #1976D2; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>🎭 Test Reports - Run #${{ github.run_number }}</h1>
-              <p>Branch: ${{ github.ref_name }} | Commit: ${{ github.sha }}</p>
-            </div>
-            <div class="reports">
-              <div class="report-card">
-                <h2>🔧 API Tests</h2>
-                <p>Automated API testing suite</p>
-                <a href="./api/index.html">📊 View Report</a>
-              </div>
-              <div class="report-card">
-                <h2>🖥️ UI Tests</h2>
-                <p>End-to-end UI testing suite</p>
-                <a href="./ui/index.html">📊 View Report</a>
-              </div>
-            </div>
-          </body>
-          </html>
-          EOF
-          
+      
       - name: 🌐 Setup GitHub Pages
         uses: actions/configure-pages@v4
         if: github.ref == 'refs/heads/main'
@@ -291,7 +250,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
 
-  # Job 5: Notifications
+  # Job 4: Notifications
   notify:
     name: 📢 Notify Results
     runs-on: ubuntu-latest
@@ -336,10 +295,6 @@ jobs:
                   "url": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/test-reports/${{ github.run_number }}/ui/"
                 }, {
                   "type": "button",
-                  "text": "📋 All Reports",
-                  "url": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/test-reports/${{ github.run_number }}/"
-                }, {
-                  "type": "button", 
                   "text": "🔍 Workflow",
                   "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                 }]
