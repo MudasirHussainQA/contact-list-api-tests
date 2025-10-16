@@ -100,21 +100,22 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # Job 3: Test Report Generation
-  test-report:
-    name: 📈 Generate Test Report
+  # Job 3a: Generate API Test Report
+  generate-api-report:
+    name: 📊 Generate API Report
     runs-on: ubuntu-latest
-    needs: [api-tests, ui-tests]
+    needs: [api-tests]
     if: always()
     
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 📥 Download all test results
+      - name: 📥 Download API test results
         uses: actions/download-artifact@v4
         with:
-          path: all-test-results
+          name: api-test-results
+          path: ./all-test-results/api-test-results
         continue-on-error: true
 
       - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
@@ -125,45 +126,87 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
-      - name: 📊 Organize reports - Keep API and UI Separate
+      - name: 📊 Organize API report
         run: |
-          echo "📁 Organizing test reports..."
-          mkdir -p ./pages-deploy/test-reports/${{ github.run_number }}/{api,ui}
+          echo "📁 Organizing API report..."
+          mkdir -p ./pages-deploy/test-reports/${{ github.run_number }}/api
           
-          echo "📋 Checking downloaded artifacts..."
-          ls -la ./all-test-results/ || echo "No all-test-results directory"
-          
-          # Copy API test report
           if [ -d "./all-test-results/api-test-results" ]; then
             echo "✅ Found API test results"
-            ls -la ./all-test-results/api-test-results/ | head -10
             cp -r ./all-test-results/api-test-results/* ./pages-deploy/test-reports/${{ github.run_number }}/api/
-            echo "✅ API report copied successfully"
+            echo "✅ API report organized successfully"
             ls -la ./pages-deploy/test-reports/${{ github.run_number }}/api/ | head -10
           else
             echo "❌ No API test results found"
           fi
+
+      - name: 📤 Upload API Report (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-report
+          path: ./pages-deploy/test-reports/${{ github.run_number }}/api/
+          retention-days: 30
+
+  # Job 3b: Generate UI Test Report
+  generate-ui-report:
+    name: 🖥️ Generate UI Report
+    runs-on: ubuntu-latest
+    needs: [ui-tests]
+    if: always()
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📥 Download UI test results
+        uses: actions/download-artifact@v4
+        with:
+          name: ui-test-results-shard-1
+          path: ./all-test-results/ui-test-results-shard-1
+        continue-on-error: true
+
+      - name: 📥 Download UI shard 2
+        uses: actions/download-artifact@v4
+        with:
+          name: ui-test-results-shard-2
+          path: ./all-test-results/ui-test-results-shard-2
+        continue-on-error: true
+
+      - name: 📥 Download UI shard 3
+        uses: actions/download-artifact@v4
+        with:
+          name: ui-test-results-shard-3
+          path: ./all-test-results/ui-test-results-shard-3
+        continue-on-error: true
+
+      - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 📊 Organize UI report
+        run: |
+          echo "📁 Organizing UI report..."
+          mkdir -p ./pages-deploy/test-reports/${{ github.run_number }}/ui
           
-          # Copy UI test reports from all shards
-          echo ""
-          echo "🔍 Looking for UI test result shards..."
           SHARD_COUNT=$(ls -d ./all-test-results/ui-test-results-shard-* 2>/dev/null | wc -l)
           echo "Found $SHARD_COUNT UI test shards"
           
           if [ $SHARD_COUNT -gt 0 ]; then
             echo "✅ Found UI test result shards"
             
-            # For UI tests, we need to merge the shards using Playwright
+            # Merge the shards using Playwright
             SHARD_PATHS=()
             for dir in ./all-test-results/ui-test-results-shard-*/; do
               echo "  📂 Processing: $dir"
-              ls -la "$dir" | head -5
               SHARD_PATHS+=("$(pwd)/$dir")
             done
             
             echo "🔄 Merging UI test reports..."
             OUTPUT_DIR="$(pwd)/pages-deploy/test-reports/${{ github.run_number }}/ui"
-            mkdir -p "$OUTPUT_DIR"
             npx playwright merge-reports --reporter html "${SHARD_PATHS[@]}"
             
             # Move the generated report to output directory
@@ -179,20 +222,7 @@ jobs:
             fi
           else
             echo "⚠️ No UI test results found"
-            echo "Available directories:"
-            ls -la ./all-test-results/ || true
           fi
-          
-          echo ""
-          echo "📊 Final report structure:"
-          find ./pages-deploy/test-reports/${{ github.run_number }}/ -type f -name "index.html" -o -type d | head -20
-
-      - name: 📤 Upload API Report (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: api-test-report
-          path: ./pages-deploy/test-reports/${{ github.run_number }}/api/
-          retention-days: 30
 
       - name: 📤 Upload UI Report (artifact)
         uses: actions/upload-artifact@v4
@@ -201,15 +231,32 @@ jobs:
           path: ./pages-deploy/test-reports/${{ github.run_number }}/ui/
           retention-days: 30
 
-      - name: 🌐 Setup GitHub Pages
-        uses: actions/configure-pages@v4
-        if: github.ref == 'refs/heads/main'
+  # Job 4: Test Report Landing Page
+  test-report-page:
+    name: 📄 Create Report Landing Page
+    runs-on: ubuntu-latest
+    needs: [generate-api-report, generate-ui-report]
+    if: always()
+    
+    steps:
+      - name: 📥 Download API Report
+        uses: actions/download-artifact@v4
+        with:
+          name: api-test-report
+          path: ./pages-deploy/test-reports/${{ github.run_number }}/api
+        continue-on-error: true
+
+      - name: 📥 Download UI Report
+        uses: actions/download-artifact@v4
+        with:
+          name: ui-test-report
+          path: ./pages-deploy/test-reports/${{ github.run_number }}/ui
         continue-on-error: true
 
       - name: 📁 Create index.html for reports landing page
-        if: github.ref == 'refs/heads/main'
         run: |
-          # Create index.html with links to both reports
+          mkdir -p ./pages-deploy/test-reports/${{ github.run_number }}
+          
           cat > ./pages-deploy/test-reports/${{ github.run_number }}/index.html << 'EOF'
           <!DOCTYPE html>
           <html>
@@ -246,6 +293,11 @@ jobs:
           </html>
           EOF
 
+      - name: 🌐 Setup GitHub Pages
+        uses: actions/configure-pages@v4
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+
       - name: 📤 Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
@@ -258,11 +310,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
 
-  # Job 4: Notifications & Metrics
+  # Job 5: Notifications
   notify:
     name: 📢 Notify Results
     runs-on: ubuntu-latest
-    needs: [api-tests, ui-tests, test-report]
+    needs: [api-tests, ui-tests, generate-api-report, generate-ui-report]
     if: always()
     
     steps:
