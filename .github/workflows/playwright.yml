@@ -199,15 +199,15 @@ jobs:
             echo "✅ Found UI test result shards"
             
             # Merge the shards using Playwright
-            SHARD_PATHS=()
+            SHARD_PATHS=""
             for dir in ./all-test-results/ui-test-results-shard-*/; do
               echo "  📂 Processing: $dir"
-              SHARD_PATHS+=("$(pwd)/$dir")
+              SHARD_PATHS="$SHARD_PATHS $(pwd)/$dir"
             done
             
             echo "🔄 Merging UI test reports..."
             OUTPUT_DIR="$(pwd)/pages-deploy/test-reports/${{ github.run_number }}/ui"
-            npx playwright merge-reports --reporter html "${SHARD_PATHS[@]}"
+            npx playwright merge-reports --reporter html $SHARD_PATHS
             
             # Move the generated report to output directory
             if [ -d "blob-report" ]; then
@@ -292,7 +292,7 @@ jobs:
           </body>
           </html>
           EOF
-
+          
       - name: 🌐 Setup GitHub Pages
         uses: actions/configure-pages@v4
         if: github.ref == 'refs/heads/main'

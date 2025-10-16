@@ -196,15 +196,15 @@ jobs:
             echo "✅ Found cross-browser test results"
             
             # Merge the results from all browsers
-            BROWSER_PATHS=()
+            BROWSER_PATHS=""
             for dir in ./all-test-results/cross-browser-test-results-*/; do
               echo "  📂 Processing: $dir"
-              BROWSER_PATHS+=("$(pwd)/$dir")
+              BROWSER_PATHS="$BROWSER_PATHS $(pwd)/$dir"
             done
             
             echo "🔄 Merging browser test reports..."
             OUTPUT_DIR="$(pwd)/pages-deploy/nightly-reports/${{ github.run_number }}/browser"
-            npx playwright merge-reports --reporter html "${BROWSER_PATHS[@]}"
+            npx playwright merge-reports --reporter html $BROWSER_PATHS
             
             # Move the generated report to output directory
             if [ -d "blob-report" ]; then
