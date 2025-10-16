@@ -202,23 +202,18 @@ jobs:
           if [ $BROWSER_COUNT -gt 0 ]; then
             echo "✅ Found cross-browser test results - merging all browsers..."
             
-            # Create merge command with all browser directories
-            MERGE_DIRS=""
-            for browser_dir in ./all-test-results/cross-browser-test-results-*/; do
-              echo "  📂 Adding browser: $browser_dir"
-              MERGE_DIRS="$MERGE_DIRS $browser_dir"
-            done
-            
             echo "🔄 Running merge-reports..."
-            npx playwright merge-reports --reporter html $MERGE_DIRS
+            cd ./all-test-results
+            npx playwright merge-reports --reporter html cross-browser-test-results-chromium cross-browser-test-results-firefox cross-browser-test-results-webkit
+            cd -
             
             # Check if merge was successful
-            if [ -d "blob-report" ]; then
+            if [ -d "./all-test-results/blob-report" ]; then
               echo "✅ Merge successful, copying merged report..."
-              cp -r blob-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
-              rm -rf blob-report
+              cp -r ./all-test-results/blob-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
+              rm -rf ./all-test-results/blob-report
             else
-              echo "⚠️ Merge may have failed, using first browser report as fallback..."
+              echo "⚠️ Merge may have failed, using Chromium report as fallback..."
               cp -r ./all-test-results/cross-browser-test-results-chromium/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
             fi
             
