@@ -208,17 +208,47 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
-      - name: 🌐 Deploy report to GitHub Pages
-        id: deploy-pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: 🌐 Setup GitHub Pages
+        uses: actions/configure-pages@v4
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+
+      - name: 📁 Create nightly report directory structure
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p ./pages-deploy/nightly-reports/${{ github.run_number }}
+          cp -r ./playwright-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/
+          
+          # Create index.html that redirects to latest nightly report
+          cat > ./pages-deploy/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Nightly Test Reports</title>
+            <meta http-equiv="refresh" content="0; url=./nightly-reports/${{ github.run_number }}/">
+          </head>
+          <body>
+            <h1>Redirecting to latest nightly report...</h1>
+            <p><a href="./nightly-reports/${{ github.run_number }}/">Click here if not redirected</a></p>
+          </body>
+          </html>
+          EOF
+          
+          # List structure for debugging
+          echo "📁 Nightly directory structure created:"
+          find ./pages-deploy -type f | head -10
+
+      - name: 📤 Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./playwright-report
-          destination_dir: nightly-reports/${{ github.run_number }}
-          force_orphan: true
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
+          path: ./pages-deploy
+        continue-on-error: true
+
+      - name: 🚀 Deploy to GitHub Pages
+        id: deploy-pages
+        uses: actions/deploy-pages@v4
+        if: github.ref == 'refs/heads/main'
         continue-on-error: true
 
       - name: 📋 Pages deployment status
