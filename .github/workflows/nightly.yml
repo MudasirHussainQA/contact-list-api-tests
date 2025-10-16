@@ -203,25 +203,16 @@ jobs:
             done
             
             echo "🔄 Running merge-reports..."
-            cd ./all-test-results
             npx playwright merge-reports --reporter html $MERGE_DIRS
-            cd -
             
             # Check if merge was successful
-            if [ -d "./all-test-results/blob-report" ]; then
+            if [ -d "blob-report" ]; then
               echo "✅ Merge successful, copying merged report..."
-              cp -r ./all-test-results/blob-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
-              rm -rf ./all-test-results/blob-report
+              cp -r blob-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
+              rm -rf blob-report
             else
-              echo "⚠️ Merge may have failed, checking for index.html..."
-              # Check if reports were created in root
-              for browser_dir in ./all-test-results/cross-browser-test-results-*/; do
-                if [ -f "$browser_dir/index.html" ]; then
-                  echo "📂 Using browser report as fallback: $browser_dir"
-                  cp -r "$browser_dir"/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
-                  break
-                fi
-              done
+              echo "⚠️ Merge may have failed, using first browser report as fallback..."
+              cp -r ./all-test-results/cross-browser-test-results-chromium/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
             fi
             
             echo "✅ Browser report organized successfully"

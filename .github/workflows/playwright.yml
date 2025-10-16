@@ -66,10 +66,6 @@ jobs:
     name: 🖥️ UI Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3]
     
     steps:
       - name: 📥 Checkout repository
@@ -87,8 +83,8 @@ jobs:
       - name: 🎭 Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-      - name: 🧪 Run UI tests (Shard ${{ matrix.shard }}/3)
-        run: npx playwright test --project=ui-tests-chromium --shard=${{ matrix.shard }}/3
+      - name: 🧪 Run UI tests
+        run: npx playwright test --project=ui-tests-chromium
         env:
           CI: true
 
@@ -96,7 +92,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ui-test-results-shard-${{ matrix.shard }}
+          name: ui-test-results
           path: playwright-report/
           retention-days: 7
 
@@ -161,22 +157,8 @@ jobs:
       - name: 📥 Download UI test results
         uses: actions/download-artifact@v4
         with:
-          name: ui-test-results-shard-1
-          path: ./all-test-results/ui-test-results-shard-1
-        continue-on-error: true
-
-      - name: 📥 Download UI shard 2
-        uses: actions/download-artifact@v4
-        with:
-          name: ui-test-results-shard-2
-          path: ./all-test-results/ui-test-results-shard-2
-        continue-on-error: true
-
-      - name: 📥 Download UI shard 3
-        uses: actions/download-artifact@v4
-        with:
-          name: ui-test-results-shard-3
-          path: ./all-test-results/ui-test-results-shard-3
+          name: ui-test-results
+          path: ./all-test-results/ui-test-results
         continue-on-error: true
 
       - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
@@ -192,45 +174,13 @@ jobs:
           echo "📁 Organizing UI report..."
           mkdir -p ./pages-deploy/test-reports/${{ github.run_number }}/ui
           
-          SHARD_COUNT=$(ls -d ./all-test-results/ui-test-results-shard-* 2>/dev/null | wc -l)
-          echo "Found $SHARD_COUNT UI test shards"
-          
-          if [ $SHARD_COUNT -gt 0 ]; then
-            echo "✅ Found UI test result shards - merging all shards..."
-            
-            # Create merge command with all shard directories
-            MERGE_DIRS=""
-            for shard_dir in ./all-test-results/ui-test-results-shard-*/; do
-              echo "  📂 Adding shard: $shard_dir"
-              MERGE_DIRS="$MERGE_DIRS $shard_dir"
-            done
-            
-            echo "🔄 Running merge-reports..."
-            cd ./all-test-results
-            npx playwright merge-reports --reporter html $MERGE_DIRS
-            cd -
-            
-            # Check if merge was successful
-            if [ -d "./all-test-results/blob-report" ]; then
-              echo "✅ Merge successful, copying merged report..."
-              cp -r ./all-test-results/blob-report/* ./pages-deploy/test-reports/${{ github.run_number }}/ui/
-              rm -rf ./all-test-results/blob-report
-            else
-              echo "⚠️ Merge may have failed, checking for index.html..."
-              # Check if reports were created in root
-              for shard_dir in ./all-test-results/ui-test-results-shard-*/; do
-                if [ -f "$shard_dir/index.html" ]; then
-                  echo "📂 Using shard report as fallback: $shard_dir"
-                  cp -r "$shard_dir"/* ./pages-deploy/test-reports/${{ github.run_number }}/ui/
-                  break
-                fi
-              done
-            fi
-            
+          if [ -d "./all-test-results/ui-test-results" ]; then
+            echo "✅ Found UI test results"
+            cp -r ./all-test-results/ui-test-results/* ./pages-deploy/test-reports/${{ github.run_number }}/ui/
             echo "✅ UI report organized successfully"
             ls -la ./pages-deploy/test-reports/${{ github.run_number }}/ui/ | head -10
           else
-            echo "⚠️ No UI test results found"
+            echo "❌ No UI test results found"
           fi
       
       - name: 🌐 Setup GitHub Pages
