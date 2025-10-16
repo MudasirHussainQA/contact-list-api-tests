@@ -140,20 +140,27 @@ jobs:
       - name: 📤 Upload API Report (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: nightly-api-test-report
-          path: ./pages-deploy/nightly-reports/${{ github.run_number }}/api/
+          name: pages-deploy-nightly
+          path: ./pages-deploy
           retention-days: 30
 
   # Job 3b: Generate Browser Test Report
   generate-browser-report:
     name: 🌐 Generate Browser Report
     runs-on: ubuntu-latest
-    needs: [cross-browser-tests]
+    needs: [cross-browser-tests, generate-api-report]
     if: always()
     
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
+
+      - name: 📥 Download pages-deploy artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pages-deploy-nightly
+          path: ./pages-deploy
+        continue-on-error: true
 
       - name: 📥 Download Chromium test results
         uses: actions/download-artifact@v4
@@ -220,13 +227,23 @@ jobs:
           else
             echo "⚠️ No cross-browser test results found"
           fi
+      
+      - name: 🌐 Setup GitHub Pages
+        uses: actions/configure-pages@v4
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
 
-      - name: 📤 Upload Browser Report (artifact)
-        uses: actions/upload-artifact@v4
+      - name: 📤 Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
         with:
-          name: nightly-browser-test-report
-          path: ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
-          retention-days: 30
+          path: ./pages-deploy
+        continue-on-error: true
+
+      - name: 🚀 Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
 
   # Job 4: Notifications
   notify:
