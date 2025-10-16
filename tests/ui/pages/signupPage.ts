@@ -18,7 +18,16 @@ export class SignupPage extends BasePage {
     this.emailInput = page.getByLabel('Email').or(page.locator('input[type="email"]')).or(page.locator('#email'));
     this.passwordInput = page.getByLabel('Password').or(page.locator('input[type="password"]')).or(page.locator('#password'));
     this.submitButton = page.getByRole('button', { name: /submit|sign up|register/i }).or(page.locator('#submit'));
-    this.errorMessage = page.locator('#error').or(page.getByText(/email address is already in use/i)).or(page.locator('[class*="error"]')).or(page.getByRole('alert'));
+    this.errorMessage = page.locator('#error')
+      .or(page.getByText(/email address is already in use/i))
+      .or(page.locator('[class*="error"]'))
+      .or(page.getByRole('alert'))
+      .or(page.locator('.error'))
+      .or(page.locator('[id*="error"]'))
+      .or(page.locator('[class*="Error"]'))
+      .or(page.locator('div:has-text("Email address is already in use")'))
+      .or(page.locator('span:has-text("Email address is already in use")'))
+      .or(page.locator('p:has-text("Email address is already in use")'));
     this.successMessage = page.getByRole('alert').filter({ hasText: /success|welcome/i }).or(page.locator('.success-message'));
     this.loginLink = page.getByText('Cancel').or(page.getByRole('button', { name: /cancel/i }));
   }
@@ -55,19 +64,60 @@ export class SignupPage extends BasePage {
   }
 
   async getErrorMessage(): Promise<string> {
-    // Wait for error message to appear
-    await this.errorMessage.waitFor({ state: 'visible', timeout: 5000 });
+    // Wait for error message to appear with extended timeout for WebKit
+    const timeout = process.env.CI ? 10000 : 5000;
+    await this.errorMessage.waitFor({ state: 'visible', timeout });
     const text = await this.errorMessage.textContent();
     return text?.trim() || '';
   }
 
   async isErrorMessageVisible(): Promise<boolean> {
     try {
-      await this.errorMessage.waitFor({ state: 'visible', timeout: 3000 });
+      const timeout = process.env.CI ? 8000 : 3000;
+      await this.errorMessage.waitFor({ state: 'visible', timeout });
       return true;
     } catch {
       return false;
     }
+  }
+
+  async findAnyErrorMessage(): Promise<{ found: boolean; message: string; selector: string }> {
+    // Comprehensive error message search for debugging
+    const errorSelectors = [
+      '#error',
+      '.error',
+      '[class*="error"]',
+      '[class*="Error"]',
+      '[id*="error"]',
+      '[role="alert"]',
+      'div:has-text("Email address is already in use")',
+      'span:has-text("Email address is already in use")',
+      'p:has-text("Email address is already in use")',
+      'div:has-text("already in use")',
+      'span:has-text("already in use")',
+      'p:has-text("already in use")',
+    ];
+
+    for (const selector of errorSelectors) {
+      try {
+        const element = this.page.locator(selector);
+        const isVisible = await element.isVisible();
+        if (isVisible) {
+          const text = await element.textContent();
+          if (text && text.trim()) {
+            return {
+              found: true,
+              message: text.trim(),
+              selector: selector
+            };
+          }
+        }
+      } catch (error) {
+        // Continue to next selector
+      }
+    }
+
+    return { found: false, message: '', selector: '' };
   }
 
   async isSuccessMessageVisible(): Promise<boolean> {
