@@ -17,6 +17,11 @@ on:
           - ui
           - cross-browser
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 env:
   NODE_VERSION: '20.x'
 
