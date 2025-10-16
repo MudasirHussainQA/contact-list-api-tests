@@ -130,28 +130,56 @@ jobs:
           echo "📁 Organizing test reports..."
           mkdir -p ./pages-deploy/test-reports/${{ github.run_number }}/{api,ui}
           
+          echo "📋 Checking downloaded artifacts..."
+          ls -la ./all-test-results/ || echo "No all-test-results directory"
+          
           # Generate API test report with proper structure
           if [ -d "./all-test-results/api-test-results" ]; then
             echo "✅ Found API test results"
+            ls -la ./all-test-results/api-test-results/ | head -10
             npx playwright merge-reports --reporter html ./pages-deploy/test-reports/${{ github.run_number }}/api ./all-test-results/api-test-results
+            if [ $? -eq 0 ]; then
+              echo "✅ API report generated successfully"
+              ls -la ./pages-deploy/test-reports/${{ github.run_number }}/api/ | head -10
+            else
+              echo "❌ Failed to generate API report"
+            fi
           else
-            echo "⚠️ No API test results found"
+            echo "❌ No API test results found"
           fi
           
           # Generate UI test report by merging UI shards
-          if ls -d ./all-test-results/ui-test-results-shard-* 1> /dev/null 2>&1; then
+          echo ""
+          echo "🔍 Looking for UI test result shards..."
+          SHARD_COUNT=$(ls -d ./all-test-results/ui-test-results-shard-* 2>/dev/null | wc -l)
+          echo "Found $SHARD_COUNT UI test shards"
+          
+          if [ $SHARD_COUNT -gt 0 ]; then
             echo "✅ Found UI test result shards"
             SHARD_DIRS=""
             for dir in ./all-test-results/ui-test-results-shard-*/; do
+              echo "  📂 Processing: $dir"
+              ls -la "$dir" | head -5
               SHARD_DIRS="$SHARD_DIRS $dir"
             done
+            
+            echo "🔄 Merging UI test reports..."
             npx playwright merge-reports --reporter html ./pages-deploy/test-reports/${{ github.run_number }}/ui $SHARD_DIRS
+            if [ $? -eq 0 ]; then
+              echo "✅ UI report generated successfully"
+              ls -la ./pages-deploy/test-reports/${{ github.run_number }}/ui/ | head -10
+            else
+              echo "❌ Failed to generate UI report"
+            fi
           else
             echo "⚠️ No UI test results found"
+            echo "Available directories:"
+            ls -la ./all-test-results/ || true
           fi
           
-          echo "📊 Report structure created:"
-          find ./pages-deploy/test-reports/${{ github.run_number }}/ -name "index.html" -o -type d | head -10
+          echo ""
+          echo "📊 Final report structure:"
+          find ./pages-deploy/test-reports/${{ github.run_number }}/ -type f -name "index.html" -o -type d | head -20
 
       - name: 📤 Upload API Report (artifact)
         uses: actions/upload-artifact@v4
