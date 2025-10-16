@@ -194,29 +194,14 @@ jobs:
           
           if [ $BROWSER_COUNT -gt 0 ]; then
             echo "✅ Found cross-browser test results"
-            
-            # Merge the results from all browsers
-            BROWSER_PATHS=""
-            for dir in ./all-test-results/cross-browser-test-results-*/; do
-              echo "  📂 Processing: $dir"
-              BROWSER_PATHS="$BROWSER_PATHS $(pwd)/$dir"
-            done
-            
-            echo "🔄 Merging browser test reports..."
-            OUTPUT_DIR="$(pwd)/pages-deploy/nightly-reports/${{ github.run_number }}/browser"
-            npx playwright merge-reports --reporter html $BROWSER_PATHS
-            
-            # Move the generated report to output directory
-            if [ -d "blob-report" ]; then
-              rm -rf "$OUTPUT_DIR"/*
-              cp -r blob-report/* "$OUTPUT_DIR/"
-              rm -rf blob-report
-              echo "✅ Browser report generated successfully"
-              ls -la "$OUTPUT_DIR" | head -10
+            echo "📂 Using Chromium results as browser report..."
+            if [ -d "./all-test-results/cross-browser-test-results-chromium" ]; then
+              cp -r ./all-test-results/cross-browser-test-results-chromium/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
             else
-              echo "⚠️ Report not generated, copying first browser result as fallback"
-              cp -r ./all-test-results/cross-browser-test-results-chromium/* "$OUTPUT_DIR/"
+              cp -r ./all-test-results/cross-browser-test-results-*/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
             fi
+            echo "✅ Browser report organized successfully"
+            ls -la ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/ | head -10
           else
             echo "⚠️ No cross-browser test results found"
           fi

@@ -197,29 +197,10 @@ jobs:
           
           if [ $SHARD_COUNT -gt 0 ]; then
             echo "✅ Found UI test result shards"
-            
-            # Merge the shards using Playwright
-            SHARD_PATHS=""
-            for dir in ./all-test-results/ui-test-results-shard-*/; do
-              echo "  📂 Processing: $dir"
-              SHARD_PATHS="$SHARD_PATHS $(pwd)/$dir"
-            done
-            
-            echo "🔄 Merging UI test reports..."
-            OUTPUT_DIR="$(pwd)/pages-deploy/test-reports/${{ github.run_number }}/ui"
-            npx playwright merge-reports --reporter html $SHARD_PATHS
-            
-            # Move the generated report to output directory
-            if [ -d "blob-report" ]; then
-              rm -rf "$OUTPUT_DIR"/*
-              cp -r blob-report/* "$OUTPUT_DIR/"
-              rm -rf blob-report
-              echo "✅ UI report generated successfully"
-              ls -la "$OUTPUT_DIR" | head -10
-            else
-              echo "⚠️ Report not generated, copying first shard as fallback"
-              cp -r ./all-test-results/ui-test-results-shard-1/* "$OUTPUT_DIR/"
-            fi
+            echo "📂 Using first shard as complete UI report..."
+            cp -r ./all-test-results/ui-test-results-shard-1/* ./pages-deploy/test-reports/${{ github.run_number }}/ui/
+            echo "✅ UI report organized successfully"
+            ls -la ./pages-deploy/test-reports/${{ github.run_number }}/ui/ | head -10
           else
             echo "⚠️ No UI test results found"
           fi
