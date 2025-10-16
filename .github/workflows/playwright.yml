@@ -137,7 +137,7 @@ jobs:
           if [ -d "./all-test-results/api-test-results" ]; then
             echo "✅ Found API test results"
             ls -la ./all-test-results/api-test-results/ | head -10
-            npx playwright merge-reports --reporter html ./pages-deploy/test-reports/${{ github.run_number }}/api ./all-test-results/api-test-results
+            npx playwright merge-reports --reporter html -o ./pages-deploy/test-reports/${{ github.run_number }}/api ./all-test-results/api-test-results
             if [ $? -eq 0 ]; then
               echo "✅ API report generated successfully"
               ls -la ./pages-deploy/test-reports/${{ github.run_number }}/api/ | head -10
@@ -164,7 +164,7 @@ jobs:
             done
             
             echo "🔄 Merging UI test reports..."
-            npx playwright merge-reports --reporter html ./pages-deploy/test-reports/${{ github.run_number }}/ui $SHARD_DIRS
+            npx playwright merge-reports --reporter html -o ./pages-deploy/test-reports/${{ github.run_number }}/ui $SHARD_DIRS
             if [ $? -eq 0 ]; then
               echo "✅ UI report generated successfully"
               ls -la ./pages-deploy/test-reports/${{ github.run_number }}/ui/ | head -10
