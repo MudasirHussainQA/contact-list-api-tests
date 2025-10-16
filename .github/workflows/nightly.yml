@@ -108,12 +108,6 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 📋 List available artifacts
-        run: |
-          echo "📊 Job status summary:"
-          echo "API Tests: ${{ needs.api-tests.result }}"
-          echo "Cross-browser Tests: ${{ needs.cross-browser-tests.result }}"
-
       - name: 📥 Download all test results
         uses: actions/download-artifact@v4
         with:
@@ -128,98 +122,44 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
-      - name: 📊 Merge test reports
+      - name: 📊 Organize reports - Keep API and Browser Tests Separate
         run: |
-          echo "📁 Checking current directory:"
-          pwd
-          ls -la
+          echo "📁 Organizing test reports..."
+          mkdir -p ./api-report ./browser-report
           
-          echo "📁 Checking if all-test-results exists:"
-          if [ -d "./all-test-results" ]; then
-            echo "✅ all-test-results directory found"
-            ls -la ./all-test-results/
-            find ./all-test-results -type f -name "*.json" -o -name "*.jsonl" | head -20
-            
-            # Look for any test result directories with proper structure
-            RESULT_DIRS=""
-            echo "🔍 Looking for test result directories..."
-            for dir in ./all-test-results/*/; do
-              if [ -d "$dir" ]; then
-                echo "📂 Found artifact directory: $dir"
-                ls -la "$dir" | head -10
-                # Check for .jsonl files (Playwright result format)
-                if find "$dir" -name "*.jsonl" -o -name "results.json" 2>/dev/null | grep -q .; then
-                  echo "✅ Found test results in: $dir"
-                  RESULT_DIRS="$RESULT_DIRS $dir"
-                fi
-              fi
-            done
-            
-            RESULT_DIRS=$(echo "$RESULT_DIRS" | xargs)
-            if [ ! -z "$RESULT_DIRS" ]; then
-              echo "✅ Test result directories to merge: $RESULT_DIRS"
-              echo "🔄 Merging reports..."
-              # Use merge-reports with all directories and output to playwright-report
-              npx playwright merge-reports --reporter html ./playwright-report $RESULT_DIRS
-              
-              if [ $? -eq 0 ]; then
-                echo "✅ Report merge successful"
-              else
-                echo "⚠️ Report merge had issues, but continuing..."
-              fi
-            else
-              echo "⚠️ No valid test result directories found"
-              echo "🔍 Searching for any test files..."
-              find ./all-test-results -type f | head -20
-              
-              # Try to run tests to generate a basic report
-              echo "🧪 Running a quick test to generate basic report structure..."
-              npx playwright test --project=api-tests --grep="should" --reporter=html --max-failures=1 || true
-              
-              if [ ! -d "playwright-report" ]; then
-                mkdir -p playwright-report
-                echo '<!DOCTYPE html>' > playwright-report/index.html
-                echo '<html><head><title>🌙 Nightly Test Results</title>' >> playwright-report/index.html
-                echo '<style>body{font-family:Arial,sans-serif;margin:40px;text-align:center}' >> playwright-report/index.html
-                echo '.header{background:#2196F3;color:white;padding:20px;border-radius:8px}' >> playwright-report/index.html
-                echo '.status{margin:20px 0;padding:15px;background:#f5f5f5;border-radius:8px}</style>' >> playwright-report/index.html
-                echo '</head><body><div class="header"><h1>🌙 Nightly Test Results</h1>' >> playwright-report/index.html
-                echo "<p>$(date)</p></div><div class=\"status\"><h2>📊 Test Summary</h2>" >> playwright-report/index.html
-                echo "<p><strong>API Tests:</strong> ${{ needs.api-tests.result }}</p>" >> playwright-report/index.html
-                echo "<p><strong>Cross-Browser Tests:</strong> ${{ needs.cross-browser-tests.result }}</p>" >> playwright-report/index.html
-                echo '<p><strong>Status:</strong> Report generation in progress</p></div>' >> playwright-report/index.html
-                echo '<p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">🔍 View Workflow Details</a></p>' >> playwright-report/index.html
-                echo '</body></html>' >> playwright-report/index.html
-              fi
-            fi
-          else
-            echo "❌ all-test-results directory not found"
-            echo "📁 Available directories:"
-            ls -la
-            
-            # Create a basic report if no artifacts
-            mkdir -p playwright-report
-            echo '<!DOCTYPE html>' > playwright-report/index.html
-            echo '<html><head><title>🌙 Nightly Test Results - No Artifacts</title>' >> playwright-report/index.html
-            echo '<style>body{font-family:Arial,sans-serif;margin:40px;text-align:center}' >> playwright-report/index.html
-            echo '.header{background:#FF9800;color:white;padding:20px;border-radius:8px}' >> playwright-report/index.html
-            echo '.status{margin:20px 0;padding:15px;background:#f5f5f5;border-radius:8px}</style>' >> playwright-report/index.html
-            echo '</head><body><div class="header"><h1>🌙 Nightly Test Results</h1>' >> playwright-report/index.html
-            echo "<p>$(date)</p></div><div class=\"status\"><h2>⚠️ No Test Artifacts Found</h2>" >> playwright-report/index.html
-            echo "<p><strong>API Tests:</strong> ${{ needs.api-tests.result }}</p>" >> playwright-report/index.html
-            echo "<p><strong>Cross-Browser Tests:</strong> ${{ needs.cross-browser-tests.result }}</p>" >> playwright-report/index.html
-            echo '</div><p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">🔍 View Workflow Details</a></p>' >> playwright-report/index.html
-            echo '</body></html>' >> playwright-report/index.html
+          # Copy API test results
+          if [ -d "./all-test-results/api-test-results" ]; then
+            echo "✅ Found API test results"
+            cp -r ./all-test-results/api-test-results/* ./api-report/ 2>/dev/null || true
+            npx playwright show-report --reporter html ./api-report 2>/dev/null || true
           fi
           
-          echo "📊 Final report structure:"
-          ls -la ./playwright-report/ 2>/dev/null || echo "Report directory not found"
+          # Copy cross-browser test results (merge all browsers)
+          if ls -d ./all-test-results/cross-browser-test-results-* 1> /dev/null 2>&1; then
+            echo "✅ Found cross-browser test results"
+            BROWSER_DIRS=""
+            for dir in ./all-test-results/cross-browser-test-results-*/; do
+              BROWSER_DIRS="$BROWSER_DIRS $dir"
+            done
+            npx playwright merge-reports --reporter html ./browser-report $BROWSER_DIRS
+          fi
+          
+          echo "📊 Report structure created:"
+          ls -la ./api-report/ 2>/dev/null | head -5
+          ls -la ./browser-report/ 2>/dev/null | head -5
 
-      - name: 📤 Upload merged report
+      - name: 📤 Upload API Report
         uses: actions/upload-artifact@v4
         with:
-          name: nightly-test-report
-          path: playwright-report/
+          name: nightly-api-test-report
+          path: ./api-report/
+          retention-days: 30
+
+      - name: 📤 Upload Browser Tests Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-browser-test-report
+          path: ./browser-report/
           retention-days: 30
 
       - name: 🌐 Setup GitHub Pages
@@ -227,30 +167,49 @@ jobs:
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
 
-      - name: 📁 Create nightly report directory structure
+      - name: 📁 Create GitHub Pages structure
         if: github.ref == 'refs/heads/main'
         run: |
-          mkdir -p ./pages-deploy/nightly-reports/${{ github.run_number }}
-          cp -r ./playwright-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/
+          mkdir -p ./pages-deploy/nightly-reports/${{ github.run_number }}/{api,browser}
+          cp -r ./api-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/api/ 2>/dev/null || true
+          cp -r ./browser-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/ 2>/dev/null || true
           
-          # Create index.html that redirects to latest nightly report
-          cat > ./pages-deploy/index.html << 'EOF'
+          # Create index.html with links to both reports
+          cat > ./pages-deploy/nightly-reports/${{ github.run_number }}/index.html << 'EOF'
           <!DOCTYPE html>
           <html>
           <head>
-            <title>Nightly Test Reports</title>
-            <meta http-equiv="refresh" content="0; url=./nightly-reports/${{ github.run_number }}/">
+            <title>Nightly Test Reports - Run ${{ github.run_number }}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+              .header { background: #1a237e; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+              .reports { display: flex; gap: 20px; }
+              .report-card { background: white; padding: 20px; border-radius: 8px; flex: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+              .report-card h2 { margin-top: 0; }
+              .report-card a { display: inline-block; margin-top: 10px; padding: 10px 20px; background: #1a237e; color: white; text-decoration: none; border-radius: 4px; }
+              .report-card a:hover { background: #0d1552; }
+            </style>
           </head>
           <body>
-            <h1>Redirecting to latest nightly report...</h1>
-            <p><a href="./nightly-reports/${{ github.run_number }}/">Click here if not redirected</a></p>
+            <div class="header">
+              <h1>🌙 Nightly Test Reports - Run #${{ github.run_number }}</h1>
+              <p>Branch: ${{ github.ref_name }} | Commit: ${{ github.sha }}</p>
+            </div>
+            <div class="reports">
+              <div class="report-card">
+                <h2>🔧 API Tests</h2>
+                <p>Automated API testing suite</p>
+                <a href="./api/index.html">📊 View Report</a>
+              </div>
+              <div class="report-card">
+                <h2>🌐 Cross-Browser Tests</h2>
+                <p>UI tests on Chromium, Firefox, Safari</p>
+                <a href="./browser/index.html">📊 View Report</a>
+              </div>
+            </div>
           </body>
           </html>
           EOF
-          
-          # List structure for debugging
-          echo "📁 Nightly directory structure created:"
-          find ./pages-deploy -type f | head -10
 
       - name: 📤 Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -260,25 +219,9 @@ jobs:
         continue-on-error: true
 
       - name: 🚀 Deploy to GitHub Pages
-        id: deploy-pages
         uses: actions/deploy-pages@v4
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
-
-      - name: 📋 Pages deployment status
-        if: github.ref == 'refs/heads/main'
-        run: |
-          if [ "${{ steps.deploy-pages.outcome }}" == "success" ]; then
-            echo "✅ GitHub Pages deployment successful!"
-            echo "📊 Nightly report available at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/nightly-reports/${{ github.run_number }}/"
-          else
-            echo "⚠️ GitHub Pages deployment failed or skipped"
-            echo "💡 To enable GitHub Pages:"
-            echo "   1. Go to repository Settings → Pages"
-            echo "   2. Source: Deploy from a branch"
-            echo "   3. Branch: gh-pages"
-            echo "📊 Report still available as artifact: nightly-test-report"
-          fi
 
   # Job 4: Notifications & Metrics
   notify:
@@ -288,293 +231,16 @@ jobs:
     if: always()
     
     steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 📥 Download test report
-        uses: actions/download-artifact@v4
-        with:
-          name: nightly-test-report
-          path: ./report-data
-        continue-on-error: true
-
-      - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: 📊 Extract test metrics from HTML report
-        id: extract-metrics
-        run: |
-          # Create a Node.js script to parse HTML report and extract metrics
-          cat > extract-metrics.js << 'EOF'
-          const fs = require('fs');
-          
-          function extractMetrics() {
-            try {
-              const reportPath = './report-data/index.html';
-              if (!fs.existsSync(reportPath)) {
-                console.log('❌ No HTML report found at: ' + reportPath);
-                return getDefaultMetrics();
-              }
-              
-              const htmlContent = fs.readFileSync(reportPath, 'utf8');
-              console.log('📄 Report file size:', htmlContent.length, 'bytes');
-              
-              let metrics = parseHtmlMetrics(htmlContent);
-              
-              // If no metrics found in HTML, try to find in script tags
-              if (metrics.totalTests === 'N/A') {
-                console.log('🔍 Trying to extract from embedded data...');
-                metrics = extractFromEmbeddedData(htmlContent);
-              }
-              
-              return metrics;
-            } catch (error) {
-              console.error('❌ Error extracting metrics:', error.message);
-              return getErrorMetrics();
-            }
-          }
-          
-          function parseHtmlMetrics(htmlContent) {
-            console.log('🔎 Searching for test metrics in HTML...');
-            
-            // Look for any numbers that might be test counts
-            // Playwright reports typically show: All X, Passed X, Failed X, etc.
-            const patterns = {
-              all: /(?:All|Total)\s*(?:Tests)?\s*(\d+)/i,
-              passed: /Passed\s*(?:Tests)?\s*(\d+)/i,
-              failed: /Failed\s*(?:Tests)?\s*(\d+)/i,
-              flaky: /Flaky\s*(?:Tests)?\s*(\d+)/i,
-              skipped: /Skipped\s*(?:Tests)?\s*(\d+)/i,
-              duration: /(?:Total\s+)?[Dd]uration[\s:]*(\d+\.?\d*\s*[a-z]+|\d+\.\d+)/i
-            };
-            
-            let metrics = {
-              totalTests: 'N/A',
-              passed: 'N/A',
-              failed: 'N/A',
-              flaky: 'N/A',
-              skipped: 'N/A',
-              duration: 'N/A'
-            };
-            
-            // Try each pattern
-            const allMatch = htmlContent.match(patterns.all);
-            const passedMatch = htmlContent.match(patterns.passed);
-            const failedMatch = htmlContent.match(patterns.failed);
-            const flakyMatch = htmlContent.match(patterns.flaky);
-            const skippedMatch = htmlContent.match(patterns.skipped);
-            const durationMatch = htmlContent.match(patterns.duration);
-            
-            if (allMatch) {
-              metrics.totalTests = allMatch[1];
-              console.log('✅ Found total tests: ' + metrics.totalTests);
-            }
-            if (passedMatch) {
-              metrics.passed = passedMatch[1];
-              console.log('✅ Found passed: ' + metrics.passed);
-            }
-            if (failedMatch) {
-              metrics.failed = failedMatch[1];
-              console.log('✅ Found failed: ' + metrics.failed);
-            }
-            if (flakyMatch) {
-              metrics.flaky = flakyMatch[1];
-              console.log('✅ Found flaky: ' + metrics.flaky);
-            }
-            if (skippedMatch) {
-              metrics.skipped = skippedMatch[1];
-              console.log('✅ Found skipped: ' + metrics.skipped);
-            }
-            if (durationMatch) {
-              metrics.duration = durationMatch[1];
-              console.log('✅ Found duration: ' + metrics.duration);
-            }
-            
-            // Fallback: check for custom report format (when artifacts couldn't be merged)
-            if (metrics.totalTests === 'N/A' && htmlContent.includes('API Tests:')) {
-              console.log('📋 Detected custom report format');
-              const apiSuccess = htmlContent.includes('API Tests:</strong> success');
-              const browserSuccess = htmlContent.includes('Cross-Browser Tests:</strong> success');
-              
-              metrics.passed = (apiSuccess && browserSuccess) ? 'All' : (apiSuccess || browserSuccess) ? 'Partial' : '0';
-              metrics.failed = (apiSuccess && browserSuccess) ? '0' : (apiSuccess || browserSuccess) ? 'Some' : 'All';
-              metrics.totalTests = 'Multiple';
-              
-              console.log('📋 Custom format - API:', apiSuccess, 'Browser:', browserSuccess);
-            }
-            
-            const hasSomeMetrics = Object.values(metrics).some(v => v !== 'N/A');
-            console.log('📊 Metrics found:', hasSomeMetrics ? 'Yes' : 'No');
-            
-            return metrics;
-          }
-          
-          function extractFromEmbeddedData(htmlContent) {
-            console.log('🔐 Attempting to extract from embedded base64 data...');
-            try {
-              // Look for various embedding patterns
-              const base64Match = htmlContent.match(/<script[^>]*id="playwrightReportBase64"[^>]*>(?:data:application\/zip;base64,)?([A-Za-z0-9+/=]+)</);
-              
-              if (!base64Match || !base64Match[1]) {
-                console.log('❌ No base64 data found');
-                return getDefaultMetrics();
-              }
-              
-              console.log('✅ Found base64 data, length:', base64Match[1].length);
-              
-              // Try to decode
-              try {
-                const zipBuffer = Buffer.from(base64Match[1], 'base64');
-                const content = zipBuffer.toString('utf8', 0, Math.min(100000, zipBuffer.length));
-                
-                // Look for stats in the content
-                const statsRegex = /"(?:stats|summary|summary_stats)":\s*{([^}]*?"total"[^}]*?"passed"[^}]*?"failed"[^}]*?)}/;
-                const statsMatch = content.match(statsRegex);
-                
-                if (statsMatch) {
-                  console.log('✅ Found stats object');
-                  const statsStr = '{' + statsMatch[1] + '}';
-                  const stats = JSON.parse(statsStr);
-                  
-                  return {
-                    totalTests: stats.total || 'N/A',
-                    passed: stats.passed || 'N/A',
-                    failed: stats.failed || 'N/A',
-                    flaky: stats.flaky || 'N/A',
-                    skipped: stats.skipped || 'N/A',
-                    duration: stats.duration ? formatDuration(stats.duration) : 'N/A',
-                    summary: `${stats.passed || 'N/A'} passed, ${stats.failed || 'N/A'} failed`
-                  };
-                }
-              } catch (e) {
-                console.log('⚠️ Could not process base64 data:', e.message);
-              }
-            } catch (e) {
-              console.log('⚠️ Base64 extraction error:', e.message);
-            }
-            
-            return getDefaultMetrics();
-          }
-          
-          function formatDuration(ms) {
-            if (typeof ms !== 'number') return 'N/A';
-            if (ms < 1000) return ms + 'ms';
-            const seconds = (ms / 1000).toFixed(1);
-            return seconds + 's';
-          }
-          
-          function getDefaultMetrics() {
-            return {
-              totalTests: 'N/A',
-              passed: 'N/A',
-              failed: 'N/A',
-              flaky: 'N/A',
-              skipped: 'N/A',
-              duration: 'N/A',
-              summary: 'Report not available'
-            };
-          }
-          
-          function getErrorMetrics() {
-            return {
-              totalTests: 'Error',
-              passed: 'Error',
-              failed: 'Error',
-              flaky: 'N/A',
-              skipped: 'Error',
-              duration: 'Error',
-              summary: 'Failed to parse report'
-            };
-          }
-          
-          const metrics = extractMetrics();
-          console.log('📊 Final metrics:', metrics);
-          console.log('METRICS_JSON=' + JSON.stringify(metrics));
-          EOF
-          
-          echo "🚀 Running metrics extraction..."
-          node extract-metrics.js > metrics-output.txt 2>&1
-          echo "📋 Extraction output:"
-          cat metrics-output.txt
-          echo ""
-          
-          METRICS_JSON=$(cat metrics-output.txt | grep "METRICS_JSON=" | cut -d'=' -f2-)
-          if [ -z "$METRICS_JSON" ]; then
-            echo "❌ Failed to extract METRICS_JSON"
-            METRICS_JSON='{"totalTests":"N/A","passed":"N/A","failed":"N/A","flaky":"N/A","skipped":"N/A","duration":"N/A","summary":"Unable to parse metrics"}'
-          fi
-          echo "metrics=$METRICS_JSON" >> $GITHUB_OUTPUT
-          
-          # Parse and output individual metrics with error handling
-          cat > parse-metrics.js << 'EOF'
-          const metricsJson = process.argv[1];
-          console.log('Parsing metrics JSON...');
-          try {
-            const metrics = JSON.parse(metricsJson);
-            console.log('✅ Successfully parsed metrics');
-            console.log('total_tests=' + (metrics.totalTests || 'N/A'));
-            console.log('passed_tests=' + (metrics.passed || 'N/A'));
-            console.log('failed_tests=' + (metrics.failed || 'N/A'));
-            console.log('test_summary=' + (metrics.summary || (metrics.passed + ' passed, ' + metrics.failed + ' failed')));
-            console.log('test_duration=' + (metrics.duration || 'N/A'));
-          } catch (error) {
-            console.log('❌ Error parsing metrics: ' + error.message);
-            console.log('total_tests=N/A');
-            console.log('passed_tests=N/A');
-            console.log('failed_tests=N/A');
-            console.log('test_summary=Unable to parse metrics');
-            console.log('test_duration=N/A');
-          }
-          EOF
-          
-          node parse-metrics.js "$METRICS_JSON" >> $GITHUB_OUTPUT
-
-      - name: 📊 Calculate test results
-        id: test-results
-        run: |
-          API_RESULT="${{ needs.api-tests.result }}"
-          BROWSER_RESULT="${{ needs.cross-browser-tests.result }}"
-          
-          # Count browser results
-          CHROMIUM_SUCCESS=false
-          FIREFOX_SUCCESS=false
-          WEBKIT_SUCCESS=false
-          
-          # Note: This is a simplified check. In reality, we'd need to parse matrix results
-          if [[ "$BROWSER_RESULT" == "success" ]]; then
-            BROWSER_STATUS="✅ All browsers passed"
-            BROWSER_COLOR="good"
-          else
-            BROWSER_STATUS="❌ Some browsers failed"
-            BROWSER_COLOR="danger"
-          fi
-          
-          if [[ "$API_RESULT" == "success" && "$BROWSER_RESULT" == "success" ]]; then
-            echo "status=✅ All nightly tests passed" >> $GITHUB_OUTPUT
-            echo "color=good" >> $GITHUB_OUTPUT
-          elif [[ "$API_RESULT" == "failure" || "$BROWSER_RESULT" == "failure" ]]; then
-            echo "status=❌ Nightly tests failed" >> $GITHUB_OUTPUT
-            echo "color=danger" >> $GITHUB_OUTPUT
-          else
-            echo "status=⚠️ Nightly tests cancelled or skipped" >> $GITHUB_OUTPUT
-            echo "color=warning" >> $GITHUB_OUTPUT
-          fi
-          
-          echo "browser_status=$BROWSER_STATUS" >> $GITHUB_OUTPUT
-
-      - name: 📢 Enhanced Slack notification with test metrics
+      - name: 📢 Send Slack notification with report links
         uses: 8398a7/action-slack@v3
         if: always()
         with:
           status: custom
           custom_payload: |
             {
-              "text": "🌙 Nightly Test Results: ${{ steps.test-results.outputs.status }}",
+              "text": "🌙 Nightly Test Reports",
               "attachments": [{
-                "color": "${{ steps.test-results.outputs.color }}",
-                "pretext": "📊 *Test Summary*: ${{ steps.extract-metrics.outputs.test_summary }}",
+                "color": "#1a237e",
                 "fields": [{
                   "title": "Repository",
                   "value": "${{ github.repository }}",
@@ -584,88 +250,32 @@ jobs:
                   "value": "${{ github.ref_name }}",
                   "short": true
                 }, {
-                  "title": "Total Tests",
-                  "value": "${{ steps.extract-metrics.outputs.total_tests }}",
-                  "short": true
-                }, {
-                  "title": "Duration",
-                  "value": "${{ steps.extract-metrics.outputs.test_duration }}",
-                  "short": true
-                }, {
-                  "title": "✅ Passed",
-                  "value": "${{ steps.extract-metrics.outputs.passed_tests }}",
-                  "short": true
-                }, {
-                  "title": "❌ Failed",
-                  "value": "${{ steps.extract-metrics.outputs.failed_tests }}",
-                  "short": true
-                }, {
-                  "title": "API Tests",
-                  "value": "${{ needs.api-tests.result }}",
-                  "short": true
-                }, {
-                  "title": "Cross-Browser Tests", 
-                  "value": "${{ needs.cross-browser-tests.result }}",
+                  "title": "Run",
+                  "value": "#${{ github.run_number }}",
                   "short": true
                 }, {
                   "title": "Commit",
                   "value": "`${{ github.sha }}`",
                   "short": true
-                }, {
-                  "title": "Triggered By",
-                  "value": "${{ github.actor }}",
-                  "short": true
                 }],
                 "actions": [{
                   "type": "button",
-                  "text": "📊 View Full Report",
+                  "text": "🔧 API Test Report",
+                  "url": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/nightly-reports/${{ github.run_number }}/api/"
+                }, {
+                  "type": "button",
+                  "text": "🌐 Browser Test Report",
+                  "url": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/nightly-reports/${{ github.run_number }}/browser/"
+                }, {
+                  "type": "button",
+                  "text": "📋 All Reports",
                   "url": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/nightly-reports/${{ github.run_number }}/"
                 }, {
-                  "type": "button", 
-                  "text": "🔍 View Workflow",
+                  "type": "button",
+                  "text": "🔍 Workflow",
                   "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                 }]
               }]
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-      - name: 📎 Upload HTML report to Slack (on failures)
-        if: always() && (needs.api-tests.result == 'failure' || needs.cross-browser-tests.result == 'failure')
-        run: |
-          if [ -f "./report-data/index.html" ]; then
-            echo "📎 Uploading HTML report to Slack for failed tests..."
-            
-            # Create a condensed summary report for Slack
-            echo '<!DOCTYPE html><html><head><title>🌙 Nightly Test Summary</title>' > slack-summary.html
-            echo '<style>body{font-family:Arial,sans-serif;margin:20px}.header{background:#f44336;color:white;padding:10px;border-radius:5px}' >> slack-summary.html
-            echo '.success{color:#4CAF50}.failure{color:#f44336}.summary{background:#f5f5f5;padding:15px;border-radius:5px;margin:10px 0}' >> slack-summary.html
-            echo '.metrics{display:flex;gap:20px}.metric{text-align:center;padding:10px;background:white;border-radius:5px}</style>' >> slack-summary.html
-            echo '</head><body><div class="header"><h2>🌙 Nightly Test Results - FAILED</h2>' >> slack-summary.html
-            echo "<p>Repository: ${{ github.repository }} | Branch: ${{ github.ref_name }}</p></div>" >> slack-summary.html
-            echo '<div class="summary"><h3>📊 Test Summary</h3><div class="metrics">' >> slack-summary.html
-            echo "<div class=\"metric\"><strong>${{ steps.extract-metrics.outputs.total_tests }}</strong><br>Total Tests</div>" >> slack-summary.html
-            echo "<div class=\"metric\"><strong class=\"success\">${{ steps.extract-metrics.outputs.passed_tests }}</strong><br>Passed</div>" >> slack-summary.html
-            echo "<div class=\"metric\"><strong class=\"failure\">${{ steps.extract-metrics.outputs.failed_tests }}</strong><br>Failed</div>" >> slack-summary.html
-            echo "<div class=\"metric\"><strong>${{ steps.extract-metrics.outputs.test_duration }}</strong><br>Duration</div>" >> slack-summary.html
-            echo '</div></div><div class="summary"><h3>🔧 Job Results</h3>' >> slack-summary.html
-            echo "<p><strong>API Tests:</strong> ${{ needs.api-tests.result }}</p>" >> slack-summary.html
-            echo "<p><strong>Cross-Browser Tests:</strong> ${{ needs.cross-browser-tests.result }}</p></div>" >> slack-summary.html
-            echo "<p><a href=\"https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/nightly-reports/${{ github.run_number }}/\">📊 View Full Interactive Report</a></p>" >> slack-summary.html
-            echo "<p><a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">🔍 View Workflow Details</a></p>" >> slack-summary.html
-            echo '</body></html>' >> slack-summary.html
-            
-            # Use curl to upload file to Slack (requires SLACK_BOT_TOKEN)
-            if [ ! -z "${{ secrets.SLACK_BOT_TOKEN }}" ]; then
-              curl -F file=@slack-summary.html \
-                   -F "initial_comment=🌙 Nightly Test Report Summary (Failures Detected)" \
-                   -F channels=${{ secrets.SLACK_CHANNEL_ID || 'general' }} \
-                   -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
-                   https://slack.com/api/files.upload
-            else
-              echo "⚠️ SLACK_BOT_TOKEN not configured, skipping file upload"
-              echo "💡 To enable file uploads, add SLACK_BOT_TOKEN to repository secrets"
-            fi
-          else
-            echo "⚠️ No HTML report found to upload"
-          fi
