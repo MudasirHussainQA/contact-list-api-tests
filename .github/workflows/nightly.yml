@@ -101,7 +101,7 @@ jobs:
   generate-api-report:
     name: 📊 Generate API Report
     runs-on: ubuntu-latest
-    needs: [api-tests]
+    needs: [api-tests, cross-browser-tests]
     if: always()
     
     steps:
