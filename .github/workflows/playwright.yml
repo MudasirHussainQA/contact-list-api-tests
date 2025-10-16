@@ -58,7 +58,7 @@ jobs:
         if: always()
         with:
           name: api-test-results
-          path: test-results/
+          path: playwright-report/
           retention-days: 7
 
   # Job 2: UI Tests (Parallel execution)
@@ -97,7 +97,7 @@ jobs:
         if: always()
         with:
           name: ui-test-results-shard-${{ matrix.shard }}
-          path: test-results/
+          path: playwright-report/
           retention-days: 7
 
   # Job 3: Test Report Generation
@@ -300,7 +300,7 @@ jobs:
                   "text": "📋 All Reports",
                   "url": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/test-reports/${{ github.run_number }}/"
                 }, {
-                  "type": "button",
+                  "type": "button", 
                   "text": "🔍 Workflow",
                   "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                 }]

@@ -55,7 +55,7 @@ jobs:
         if: always()
         with:
           name: api-test-results
-          path: test-results/
+          path: playwright-report/
           retention-days: 7
 
   # Job 2: Cross-browser testing (nightly only)
@@ -94,7 +94,7 @@ jobs:
         if: always()
         with:
           name: cross-browser-test-results-${{ matrix.browser }}
-          path: test-results/
+          path: playwright-report/
           retention-days: 7
 
   # Job 3: Test Report Generation
