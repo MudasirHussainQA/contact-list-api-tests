@@ -130,24 +130,18 @@ jobs:
           echo "📋 Checking downloaded artifacts..."
           ls -la ./all-test-results/ || echo "No all-test-results directory"
           
-          # Generate API test report with proper structure
+          # Copy API test report
           if [ -d "./all-test-results/api-test-results" ]; then
             echo "✅ Found API test results"
             ls -la ./all-test-results/api-test-results/ | head -10
-            cd ./pages-deploy/nightly-reports/${{ github.run_number }}/api
-            npx playwright merge-reports --reporter html ../../../all-test-results/api-test-results
-            cd -
-            if [ $? -eq 0 ]; then
-              echo "✅ API report generated successfully"
-              ls -la ./pages-deploy/nightly-reports/${{ github.run_number }}/api/ | head -10
-            else
-              echo "❌ Failed to generate API report"
-            fi
+            cp -r ./all-test-results/api-test-results/* ./pages-deploy/nightly-reports/${{ github.run_number }}/api/
+            echo "✅ API report copied successfully"
+            ls -la ./pages-deploy/nightly-reports/${{ github.run_number }}/api/ | head -10
           else
             echo "❌ No API test results found"
           fi
           
-          # Generate cross-browser test report by merging all browsers
+          # Merge and copy cross-browser test reports
           echo ""
           echo "🔍 Looking for cross-browser test results..."
           BROWSER_COUNT=$(ls -d ./all-test-results/cross-browser-test-results-* 2>/dev/null | wc -l)
@@ -155,22 +149,30 @@ jobs:
           
           if [ $BROWSER_COUNT -gt 0 ]; then
             echo "✅ Found cross-browser test results"
-            BROWSER_DIRS=""
+            
+            # For browser tests, merge the results from all browsers
+            BROWSER_PATHS=()
             for dir in ./all-test-results/cross-browser-test-results-*/; do
               echo "  📂 Processing: $dir"
               ls -la "$dir" | head -5
-              BROWSER_DIRS="$BROWSER_DIRS $dir"
+              BROWSER_PATHS+=("$(pwd)/$dir")
             done
             
             echo "🔄 Merging browser test reports..."
-            cd ./pages-deploy/nightly-reports/${{ github.run_number }}/browser
-            npx playwright merge-reports --reporter html $BROWSER_DIRS
-            cd -
-            if [ $? -eq 0 ]; then
+            OUTPUT_DIR="$(pwd)/pages-deploy/nightly-reports/${{ github.run_number }}/browser"
+            mkdir -p "$OUTPUT_DIR"
+            npx playwright merge-reports --reporter html "${BROWSER_PATHS[@]}"
+            
+            # Move the generated report to output directory
+            if [ -d "blob-report" ]; then
+              rm -rf "$OUTPUT_DIR"/*
+              cp -r blob-report/* "$OUTPUT_DIR/"
+              rm -rf blob-report
               echo "✅ Browser report generated successfully"
-              ls -la ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/ | head -10
+              ls -la "$OUTPUT_DIR" | head -10
             else
-              echo "❌ Failed to generate browser report"
+              echo "⚠️ Report not generated, copying first browser result as fallback"
+              cp -r ./all-test-results/cross-browser-test-results-chromium/* "$OUTPUT_DIR/"
             fi
           else
             echo "⚠️ No cross-browser test results found"

@@ -133,24 +133,18 @@ jobs:
           echo "📋 Checking downloaded artifacts..."
           ls -la ./all-test-results/ || echo "No all-test-results directory"
           
-          # Generate API test report with proper structure
+          # Copy API test report
           if [ -d "./all-test-results/api-test-results" ]; then
             echo "✅ Found API test results"
             ls -la ./all-test-results/api-test-results/ | head -10
-            cd ./pages-deploy/test-reports/${{ github.run_number }}/api
-            npx playwright merge-reports --reporter html ../../../all-test-results/api-test-results
-            cd -
-            if [ $? -eq 0 ]; then
-              echo "✅ API report generated successfully"
-              ls -la ./pages-deploy/test-reports/${{ github.run_number }}/api/ | head -10
-            else
-              echo "❌ Failed to generate API report"
-            fi
+            cp -r ./all-test-results/api-test-results/* ./pages-deploy/test-reports/${{ github.run_number }}/api/
+            echo "✅ API report copied successfully"
+            ls -la ./pages-deploy/test-reports/${{ github.run_number }}/api/ | head -10
           else
             echo "❌ No API test results found"
           fi
           
-          # Generate UI test report by merging UI shards
+          # Copy UI test reports from all shards
           echo ""
           echo "🔍 Looking for UI test result shards..."
           SHARD_COUNT=$(ls -d ./all-test-results/ui-test-results-shard-* 2>/dev/null | wc -l)
@@ -158,22 +152,30 @@ jobs:
           
           if [ $SHARD_COUNT -gt 0 ]; then
             echo "✅ Found UI test result shards"
-            SHARD_DIRS=""
+            
+            # For UI tests, we need to merge the shards using Playwright
+            SHARD_PATHS=()
             for dir in ./all-test-results/ui-test-results-shard-*/; do
               echo "  📂 Processing: $dir"
               ls -la "$dir" | head -5
-              SHARD_DIRS="$SHARD_DIRS $dir"
+              SHARD_PATHS+=("$(pwd)/$dir")
             done
             
             echo "🔄 Merging UI test reports..."
-            cd ./pages-deploy/test-reports/${{ github.run_number }}/ui
-            npx playwright merge-reports --reporter html $SHARD_DIRS
-            cd -
-            if [ $? -eq 0 ]; then
+            OUTPUT_DIR="$(pwd)/pages-deploy/test-reports/${{ github.run_number }}/ui"
+            mkdir -p "$OUTPUT_DIR"
+            npx playwright merge-reports --reporter html "${SHARD_PATHS[@]}"
+            
+            # Move the generated report to output directory
+            if [ -d "blob-report" ]; then
+              rm -rf "$OUTPUT_DIR"/*
+              cp -r blob-report/* "$OUTPUT_DIR/"
+              rm -rf blob-report
               echo "✅ UI report generated successfully"
-              ls -la ./pages-deploy/test-reports/${{ github.run_number }}/ui/ | head -10
+              ls -la "$OUTPUT_DIR" | head -10
             else
-              echo "❌ Failed to generate UI report"
+              echo "⚠️ Report not generated, copying first shard as fallback"
+              cp -r ./all-test-results/ui-test-results-shard-1/* "$OUTPUT_DIR/"
             fi
           else
             echo "⚠️ No UI test results found"
