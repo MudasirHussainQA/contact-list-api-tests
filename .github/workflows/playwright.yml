@@ -295,108 +295,162 @@ jobs:
       - name: 📊 Extract test metrics from HTML report
         id: extract-metrics
         run: |
-          # Create a Node.js script to parse HTML report
+          # Create a Node.js script to parse HTML report and extract metrics
           cat > extract-metrics.js << 'EOF'
           const fs = require('fs');
-          const path = require('path');
+          const { createReadStream } = require('fs');
           
           function extractMetrics() {
             try {
               const reportPath = './report-data/index.html';
               if (!fs.existsSync(reportPath)) {
-                console.log('No HTML report found, using job status metrics');
-                return {
-                  totalTests: 'N/A',
-                  passed: 'N/A', 
-                  failed: 'N/A',
-                  skipped: 'N/A',
-                  duration: 'N/A',
-                  summary: 'Report not available'
-                };
+                console.log('No HTML report found');
+                return getDefaultMetrics();
               }
               
               const htmlContent = fs.readFileSync(reportPath, 'utf8');
-              console.log('HTML content preview:', htmlContent.substring(0, 500));
+              console.log('DEBUG: HTML content length:', htmlContent.length);
               
-              // Multiple patterns to extract metrics from different report formats
-              let totalTests = 'N/A', passed = 'N/A', failed = 'N/A', skipped = 'N/A', duration = 'N/A';
+              // Extract base64 data from playwrightReportBase64 script tag
+              const base64Match = htmlContent.match(/<script[^>]*id="playwrightReportBase64"[^>]*type="application\/zip">data:application\/zip;base64,([A-Za-z0-9+/=]+)</);
               
-              // Pattern 1: Playwright HTML report - look for filter buttons and metadata
-              const allMatch = htmlContent.match(/All\s+(\d+)/i);
-              const passedMatch = htmlContent.match(/Passed\s+(\d+)/i) || 
-                                 htmlContent.match(/✓\s*Passed\s+(\d+)/i) ||
-                                 htmlContent.match(/(\d+)\s*passed/i);
-              const failedMatch = htmlContent.match(/Failed\s+(\d+)/i) || 
-                                 htmlContent.match(/✗\s*Failed\s+(\d+)/i) ||
-                                 htmlContent.match(/(\d+)\s*failed/i);
-              const flakyMatch = htmlContent.match(/Flaky\s+(\d+)/i);
-              const skippedMatch = htmlContent.match(/Skipped\s+(\d+)/i) ||
-                                  htmlContent.match(/(\d+)\s*skipped/i);
-              
-              // Look for total time pattern
-              const durationMatch = htmlContent.match(/Total time:\s*(\d+(?:\.\d+)?[a-z]+)/i) ||
-                                   htmlContent.match(/(\d+(?:\.\d+)?(?:ms|s|m))/i);
-              
-              // Extract values
-              totalTests = allMatch ? allMatch[1] : 'N/A';
-              passed = passedMatch ? passedMatch[1] : 'N/A';
-              failed = failedMatch ? failedMatch[1] : 'N/A';
-              skipped = skippedMatch ? skippedMatch[1] : 'N/A';
-              duration = durationMatch ? durationMatch[1] : 'N/A';
-              
-              // Pattern 2: Custom HTML report (our fallback)
-              if (!allMatch && htmlContent.includes('API Tests:') && htmlContent.includes('UI Tests:')) {
-                // Extract from job status
-                const apiSuccess = htmlContent.includes('API Tests:</strong> success');
-                const uiSuccess = htmlContent.includes('UI Tests:</strong> success');
-                
-                if (apiSuccess && uiSuccess) {
-                  passed = 'All';
-                  failed = '0';
-                  totalTests = 'Multiple';
-                } else if (apiSuccess || uiSuccess) {
-                  passed = 'Partial';
-                  failed = 'Some';
-                  totalTests = 'Multiple';
-                } else {
-                  passed = '0';
-                  failed = 'All';
-                  totalTests = 'Multiple';
+              if (base64Match && base64Match[1]) {
+                console.log('Found embedded base64 report data');
+                try {
+                  // Decode base64
+                  const zipBuffer = Buffer.from(base64Match[1], 'base64');
+                  
+                  // Try to extract JSON from the zip data
+                  // Look for common patterns in uncompressed JSON
+                  const content = zipBuffer.toString('utf8', 0, Math.min(50000, zipBuffer.length));
+                  
+                  // Look for stats or summary data
+                  const statsMatch = content.match(/"stats":\s*{([^}]*?"total"[^}]*?"passed"[^}]*?"failed"[^}]*?)}/);
+                  if (statsMatch) {
+                    const statsStr = '{' + statsMatch[1] + '}';
+                    try {
+                      const stats = JSON.parse(statsStr);
+                      console.log('Found stats in embedded data:', stats);
+                      return {
+                        totalTests: stats.total || 'N/A',
+                        passed: stats.passed || 'N/A',
+                        failed: stats.failed || 'N/A',
+                        flaky: stats.flaky || 'N/A',
+                        skipped: stats.skipped || 'N/A',
+                        duration: stats.duration ? formatDuration(stats.duration) : 'N/A',
+                        summary: `${stats.passed || 'N/A'} passed, ${stats.failed || 'N/A'} failed`
+                      };
+                    } catch (e) {
+                      console.log('Could not parse stats JSON');
+                    }
+                  }
+                } catch (e) {
+                  console.log('Error processing zip data:', e.message);
                 }
               }
               
-              const summary = `${passed} passed, ${failed} failed`;
-              
-              const metrics = {
-                totalTests,
-                passed,
-                failed,
-                skipped,
-                duration,
-                summary
-              };
-              
-              console.log('Extracted metrics:', metrics);
-              return metrics;
+              // Fallback: Try regex patterns on HTML content
+              return parseHtmlMetrics(htmlContent);
             } catch (error) {
-              console.error('Error extracting metrics:', error);
-              return {
-                totalTests: 'Error',
-                passed: 'Error',
-                failed: 'Error', 
-                skipped: 'Error',
-                duration: 'Error',
-                summary: 'Failed to parse report'
-              };
+              console.error('Error extracting metrics:', error.message);
+              return getErrorMetrics();
             }
           }
           
+          function parseHtmlMetrics(htmlContent) {
+            let totalTests = 'N/A', passed = 'N/A', failed = 'N/A', skipped = 'N/A', flaky = 'N/A', duration = 'N/A';
+            
+            // Look for plain text numbers in common positions
+            const allMatch = htmlContent.match(/All\s+(\d+)/i);
+            const passedMatch = htmlContent.match(/Passed\s+(\d+)/i);
+            const failedMatch = htmlContent.match(/Failed\s+(\d+)/i);
+            const flakyMatch = htmlContent.match(/Flaky\s+(\d+)/i);
+            const skippedMatch = htmlContent.match(/Skipped\s+(\d+)/i);
+            const durationMatch = htmlContent.match(/(?:Total time|Duration):\s*([0-9.]+[a-z]+)/i);
+            
+            totalTests = allMatch ? allMatch[1] : 'N/A';
+            passed = passedMatch ? passedMatch[1] : 'N/A';
+            failed = failedMatch ? failedMatch[1] : 'N/A';
+            flaky = flakyMatch ? flakyMatch[1] : 'N/A';
+            skipped = skippedMatch ? skippedMatch[1] : 'N/A';
+            duration = durationMatch ? durationMatch[1] : 'N/A';
+            
+            console.log('DEBUG: HTML regex - total:', totalTests, 'passed:', passed, 'failed:', failed);
+            
+            // Fallback for custom report format
+            if (totalTests === 'N/A' && htmlContent.includes('API Tests:')) {
+              const apiSuccess = htmlContent.includes('API Tests:</strong> success');
+              const uiSuccess = htmlContent.includes('UI Tests:</strong> success');
+              
+              if (apiSuccess && uiSuccess) {
+                passed = 'All';
+                failed = '0';
+                totalTests = 'Multiple';
+              } else if (apiSuccess || uiSuccess) {
+                passed = 'Partial';
+                failed = 'Some';
+                totalTests = 'Multiple';
+              } else {
+                passed = '0';
+                failed = 'All';
+                totalTests = 'Multiple';
+              }
+            }
+            
+            const summary = flaky !== 'N/A' && flaky !== '0' 
+              ? `${passed} passed, ${failed} failed, ${flaky} flaky`
+              : `${passed} passed, ${failed} failed`;
+            
+            return {
+              totalTests,
+              passed,
+              failed,
+              flaky,
+              skipped,
+              duration,
+              summary
+            };
+          }
+          
+          function formatDuration(ms) {
+            if (typeof ms !== 'number') return 'N/A';
+            if (ms < 1000) return ms + 'ms';
+            const seconds = (ms / 1000).toFixed(1);
+            return seconds + 's';
+          }
+          
+          function getDefaultMetrics() {
+            return {
+              totalTests: 'N/A',
+              passed: 'N/A',
+              failed: 'N/A',
+              flaky: 'N/A',
+              skipped: 'N/A',
+              duration: 'N/A',
+              summary: 'Report not available'
+            };
+          }
+          
+          function getErrorMetrics() {
+            return {
+              totalTests: 'Error',
+              passed: 'Error',
+              failed: 'Error',
+              flaky: 'N/A',
+              skipped: 'Error',
+              duration: 'Error',
+              summary: 'Failed to parse report'
+            };
+          }
+          
           const metrics = extractMetrics();
+          console.log('Extracted metrics:', metrics);
           console.log('METRICS_JSON=' + JSON.stringify(metrics));
           EOF
           
           # Run the extraction script
-          node extract-metrics.js > metrics-output.txt
+          node extract-metrics.js > metrics-output.txt 2>&1
+          cat metrics-output.txt
           METRICS_JSON=$(cat metrics-output.txt | grep "METRICS_JSON=" | cut -d'=' -f2-)
           echo "metrics=$METRICS_JSON" >> $GITHUB_OUTPUT
           
@@ -411,6 +465,7 @@ jobs:
             console.log('test_summary=' + (metrics.summary || 'N/A'));
             console.log('test_duration=' + (metrics.duration || 'N/A'));
           } catch (error) {
+            console.log('ERROR_PARSING_METRICS=' + error.message);
             console.log('total_tests=N/A');
             console.log('passed_tests=N/A');
             console.log('failed_tests=N/A');
