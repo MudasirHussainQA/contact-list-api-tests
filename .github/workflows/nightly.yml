@@ -367,7 +367,7 @@ jobs:
                 skipped = skippedMatch ? skippedMatch[1] : 'N/A';
                 duration = durationMatch ? durationMatch[1] : 'N/A';
               }
-              
+
               const summary = `${passed} passed, ${failed} failed`;
               
               const metrics = {
@@ -403,15 +403,26 @@ jobs:
           METRICS_JSON=$(cat metrics-output.txt | grep "METRICS_JSON=" | cut -d'=' -f2-)
           echo "metrics=$METRICS_JSON" >> $GITHUB_OUTPUT
           
-          # Also extract individual values for easier access
-          echo "$METRICS_JSON" | node -e "
-            const metrics = JSON.parse(require('fs').readFileSync(0, 'utf8'));
-            console.log('total_tests=' + metrics.totalTests);
-            console.log('passed_tests=' + metrics.passed);
-            console.log('failed_tests=' + metrics.failed);
-            console.log('test_summary=' + metrics.summary);
-            console.log('test_duration=' + metrics.duration);
-          " >> $GITHUB_OUTPUT
+          # Parse and output individual metrics with error handling
+          cat > parse-metrics.js << 'EOF'
+          const metricsJson = process.argv[1];
+          try {
+            const metrics = JSON.parse(metricsJson);
+            console.log('total_tests=' + (metrics.totalTests || 'N/A'));
+            console.log('passed_tests=' + (metrics.passed || 'N/A'));
+            console.log('failed_tests=' + (metrics.failed || 'N/A'));
+            console.log('test_summary=' + (metrics.summary || 'N/A'));
+            console.log('test_duration=' + (metrics.duration || 'N/A'));
+          } catch (error) {
+            console.log('total_tests=N/A');
+            console.log('passed_tests=N/A');
+            console.log('failed_tests=N/A');
+            console.log('test_summary=Unable to parse metrics');
+            console.log('test_duration=N/A');
+          }
+          EOF
+          
+          node parse-metrics.js "$METRICS_JSON" >> $GITHUB_OUTPUT
 
       - name: 📊 Calculate test results
         id: test-results
