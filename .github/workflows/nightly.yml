@@ -85,7 +85,7 @@ jobs:
         run: npx playwright install ${{ matrix.browser }} --with-deps
 
       - name: 🧪 Run UI tests on ${{ matrix.browser }}
-        run: npx playwright test --project=ui-tests-${{ matrix.browser }}
+        run: npx playwright test --project=ui-tests-${{ matrix.browser }} --reporter=blob
         env:
           CI: true
 
@@ -93,8 +93,8 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: cross-browser-test-results-${{ matrix.browser }}
-          path: playwright-report/
+          name: blob-report-${{ matrix.browser }}
+          path: blob-report/
           retention-days: 7
 
   # Job 3a: Generate API Test Report
@@ -165,22 +165,22 @@ jobs:
       - name: 📥 Download Chromium test results
         uses: actions/download-artifact@v4
         with:
-          name: cross-browser-test-results-chromium
-          path: ./all-test-results/cross-browser-test-results-chromium
+          name: blob-report-chromium
+          path: ./all-blob-reports/blob-report-chromium
         continue-on-error: true
 
       - name: 📥 Download Firefox test results
         uses: actions/download-artifact@v4
         with:
-          name: cross-browser-test-results-firefox
-          path: ./all-test-results/cross-browser-test-results-firefox
+          name: blob-report-firefox
+          path: ./all-blob-reports/blob-report-firefox
         continue-on-error: true
 
       - name: 📥 Download WebKit test results
         uses: actions/download-artifact@v4
         with:
-          name: cross-browser-test-results-webkit
-          path: ./all-test-results/cross-browser-test-results-webkit
+          name: blob-report-webkit
+          path: ./all-blob-reports/blob-report-webkit
         continue-on-error: true
 
       - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
@@ -196,14 +196,14 @@ jobs:
           echo "📁 Organizing browser report..."
           mkdir -p ./pages-deploy/nightly-reports/${{ github.run_number }}/browser
           
-          BROWSER_COUNT=$(ls -d ./all-test-results/cross-browser-test-results-* 2>/dev/null | wc -l)
+          BROWSER_COUNT=$(ls -d ./all-blob-reports/blob-report-* 2>/dev/null | wc -l)
           echo "Found $BROWSER_COUNT browser test directories"
           
           if [ $BROWSER_COUNT -gt 0 ]; then
             echo "✅ Found cross-browser test results - merging all browsers..."
             
             echo "🔄 Running merge-reports..."
-            npx playwright merge-reports --reporter html ./all-test-results
+            npx playwright merge-reports --reporter html ./all-blob-reports
             
             # Check if merge was successful
             if [ -d "./playwright-report" ]; then
@@ -211,8 +211,7 @@ jobs:
               cp -r ./playwright-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
               rm -rf ./playwright-report
             else
-              echo "⚠️ Merge may have failed, using Chromium report as fallback..."
-              cp -r ./all-test-results/cross-browser-test-results-chromium/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
+              echo "⚠️ Merge may have failed, check logs for details"
             fi
             
             echo "✅ Browser report organized successfully"
