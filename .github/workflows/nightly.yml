@@ -203,15 +203,13 @@ jobs:
             echo "✅ Found cross-browser test results - merging all browsers..."
             
             echo "🔄 Running merge-reports..."
-            cd ./all-test-results
-            npx playwright merge-reports --reporter html cross-browser-test-results-chromium cross-browser-test-results-firefox cross-browser-test-results-webkit
-            cd -
+            npx playwright merge-reports --reporter html ./all-test-results
             
             # Check if merge was successful
-            if [ -d "./all-test-results/blob-report" ]; then
+            if [ -d "./playwright-report" ]; then
               echo "✅ Merge successful, copying merged report..."
-              cp -r ./all-test-results/blob-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
-              rm -rf ./all-test-results/blob-report
+              cp -r ./playwright-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
+              rm -rf ./playwright-report
             else
               echo "⚠️ Merge may have failed, using Chromium report as fallback..."
               cp -r ./all-test-results/cross-browser-test-results-chromium/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
