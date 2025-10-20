@@ -1,6 +1,4 @@
-import { test, expect } from '@playwright/test';
-import { UserClient } from '../clients/userClient';
-import { UserFactory } from '../fixtures/userFactory';
+import { test, expect, testDataHelpers } from '../../fixtures';
 import { HTTP_STATUS } from '../constants/api.constants';
 import { faker } from '@faker-js/faker';
 
@@ -20,43 +18,32 @@ import { faker } from '@faker-js/faker';
 test.describe('Complete User Management API Tests', () => {
   
   test.describe('User Registration (POST /users)', () => {
-    test('should successfully register a new user with all required fields', async ({ request }) => {
-      const userClient = new UserClient(request);
-      const user = UserFactory.generateValidUser();
-
-      const res = await userClient.register(user);
+    test('should successfully register a new user with all required fields', async ({ userClient, validUser }) => {
+      const res = await userClient.register(validUser);
       
       expect(res.status()).toBe(HTTP_STATUS.CREATED);
       expect(res.headers()['content-type']).toContain('application/json');
 
       const responseBody = await res.json();
       
-      // Validate response structure according to API documentation
       expect(responseBody).toHaveProperty('user');
       expect(responseBody).toHaveProperty('token');
-      
-      // Validate user object
       expect(responseBody.user).toHaveProperty('_id');
       expect(responseBody.user).toHaveProperty('firstName');
       expect(responseBody.user).toHaveProperty('lastName');
       expect(responseBody.user).toHaveProperty('email');
-      expect(responseBody.user).not.toHaveProperty('password'); // Password should not be returned
+      expect(responseBody.user).not.toHaveProperty('password');
       
-      // Validate data integrity
-      expect(responseBody.user.firstName).toBe(user.firstName);
-      expect(responseBody.user.lastName).toBe(user.lastName);
-      expect(responseBody.user.email.toLowerCase()).toBe(user.email.toLowerCase());
+      expect(responseBody.user.firstName).toBe(validUser.firstName);
+      expect(responseBody.user.lastName).toBe(validUser.lastName);
+      expect(responseBody.user.email.toLowerCase()).toBe(validUser.email.toLowerCase());
       
-      // Validate token
       expect(typeof responseBody.token).toBe('string');
       expect(responseBody.token.length).toBeGreaterThan(0);
-      
-      // Cleanup
-      await userClient.login({ email: user.email, password: user.password });
-      await userClient.delete();
     });
 
     test('should reject registration with missing firstName', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const userClient = new UserClient(request);
       const invalidUser = {
         lastName: faker.person.lastName(),
@@ -73,6 +60,7 @@ test.describe('Complete User Management API Tests', () => {
     });
 
     test('should reject registration with missing lastName', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const userClient = new UserClient(request);
       const invalidUser = {
         firstName: faker.person.firstName(),
@@ -89,6 +77,7 @@ test.describe('Complete User Management API Tests', () => {
     });
 
     test('should reject registration with missing email', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const userClient = new UserClient(request);
       const invalidUser = {
         firstName: faker.person.firstName(),
@@ -105,6 +94,7 @@ test.describe('Complete User Management API Tests', () => {
     });
 
     test('should reject registration with missing password', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const userClient = new UserClient(request);
       const invalidUser = {
         firstName: faker.person.firstName(),
@@ -121,6 +111,7 @@ test.describe('Complete User Management API Tests', () => {
     });
 
     test('should reject registration with invalid email format', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const userClient = new UserClient(request);
       const invalidEmails = [
         'invalid-email',
@@ -132,7 +123,7 @@ test.describe('Complete User Management API Tests', () => {
       ];
 
       for (const invalidEmail of invalidEmails) {
-        const user = UserFactory.generateValidUser({ email: invalidEmail });
+        const user = testDataHelpers.createUser({ email: invalidEmail });
         const res = await userClient.register(user);
         
         expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
@@ -143,8 +134,9 @@ test.describe('Complete User Management API Tests', () => {
     });
 
     test('should reject registration with password shorter than 7 characters', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const userClient = new UserClient(request);
-      const user = UserFactory.generateValidUser({ password: '123456' }); // 6 characters
+      const user = testDataHelpers.createUser({ password: '123456' });
 
       const res = await userClient.register(user);
       
@@ -154,78 +146,50 @@ test.describe('Complete User Management API Tests', () => {
       expect(errorBody.message).toMatch(/password.*7/i);
     });
 
-    test('should reject registration with duplicate email', async ({ request }) => {
-      const userClient = new UserClient(request);
-      const user1 = UserFactory.generateValidUser();
-      const user2 = UserFactory.generateValidUser({ email: user1.email });
+    test('should reject registration with duplicate email', async ({ userClient, validUser, request }) => {
+      const { UserClient } = await import('../clients/userClient');
+      const userClient2 = new UserClient(request);
 
-      // Register first user
-      let res = await userClient.register(user1);
+      let res = await userClient.register(validUser);
       expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
-      // Try to register second user with same email
-      res = await userClient.register(user2);
+      const user2 = testDataHelpers.createUser({ email: validUser.email });
+      res = await userClient2.register(user2);
       expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody).toHaveProperty('message');
       expect(errorBody.message).toContain('Email address is already in use');
-
-      // Cleanup
-      await userClient.login({ email: user1.email, password: user1.password });
-      await userClient.delete();
     });
 
     test('should handle case-insensitive email duplicates', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const userClient = new UserClient(request);
       const baseEmail = faker.internet.email().toLowerCase();
-      const user1 = UserFactory.generateValidUser({ email: baseEmail });
-      const user2 = UserFactory.generateValidUser({ email: baseEmail.toUpperCase() });
+      const user1 = testDataHelpers.createUser({ email: baseEmail });
+      const user2 = testDataHelpers.createUser({ email: baseEmail.toUpperCase() });
 
-      // Register first user
       let res = await userClient.register(user1);
       expect(res.status()).toBe(HTTP_STATUS.CREATED);
 
-      // Try to register second user with same email in different case
       res = await userClient.register(user2);
       expect(res.status()).toBe(HTTP_STATUS.BAD_REQUEST);
       
       const errorBody = await res.json();
       expect(errorBody.message).toContain('Email address is already in use');
 
-      // Cleanup
       await userClient.login({ email: user1.email, password: user1.password });
       await userClient.delete();
     });
   });
 
   test.describe('User Login (POST /users/login)', () => {
-    let testUser: any;
-    let userClient: UserClient;
-
-    test.beforeEach(async ({ request }) => {
-      userClient = new UserClient(request);
-      testUser = UserFactory.generateValidUser();
+    test('should successfully login with valid credentials', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
       
-      // Create test user
-      const res = await userClient.register(testUser);
-      expect(res.status()).toBe(HTTP_STATUS.CREATED);
-    });
-
-    test.afterEach(async () => {
-      // Cleanup test user
-      try {
-        await userClient.login({ email: testUser.email, password: testUser.password });
-        await userClient.delete();
-      } catch (error) {
-        console.log('Cleanup error (expected if user already deleted):', error);
-      }
-    });
-
-    test('should successfully login with valid credentials', async () => {
       const res = await userClient.login({ 
-        email: testUser.email, 
-        password: testUser.password 
+        email: validUser.email, 
+        password: validUser.password 
       });
       
       expect(res.status()).toBe(HTTP_STATUS.OK);
@@ -233,136 +197,80 @@ test.describe('Complete User Management API Tests', () => {
 
       const responseBody = await res.json();
       
-      // Validate response structure
       expect(responseBody).toHaveProperty('user');
       expect(responseBody).toHaveProperty('token');
       
-      // Validate user object
-      expect(responseBody.user.firstName).toBe(testUser.firstName);
-      expect(responseBody.user.lastName).toBe(testUser.lastName);
-      expect(responseBody.user.email.toLowerCase()).toBe(testUser.email.toLowerCase());
+      expect(responseBody.user.firstName).toBe(validUser.firstName);
+      expect(responseBody.user.lastName).toBe(validUser.lastName);
+      expect(responseBody.user.email.toLowerCase()).toBe(validUser.email.toLowerCase());
       expect(responseBody.user).not.toHaveProperty('password');
       
-      // Validate token
       expect(typeof responseBody.token).toBe('string');
       expect(responseBody.token.length).toBeGreaterThan(0);
       expect(userClient.token).toBe(responseBody.token);
     });
 
-    test('should reject login with invalid email', async () => {
+    test('should reject login with invalid email', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      
       const res = await userClient.login({ 
         email: 'nonexistent@example.com', 
-        password: testUser.password 
+        password: validUser.password 
       });
       
       expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
-      
-      // Handle empty response body for 401 errors
-      const responseText = await res.text();
-      if (responseText) {
-        try {
-          const errorBody = JSON.parse(responseText);
-          expect(errorBody).toHaveProperty('error');
-        } catch (e) {
-          // If response is not JSON, that's acceptable for 401
-          console.log('401 response is not JSON:', responseText);
-        }
-      }
     });
 
-    test('should reject login with invalid password', async () => {
+    test('should reject login with invalid password', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      
       const res = await userClient.login({ 
-        email: testUser.email, 
+        email: validUser.email, 
         password: 'wrongpassword' 
       });
       
       expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
-      
-      // Handle empty response body for 401 errors
-      const responseText = await res.text();
-      if (responseText) {
-        try {
-          const errorBody = JSON.parse(responseText);
-          expect(errorBody).toHaveProperty('error');
-        } catch (e) {
-          // If response is not JSON, that's acceptable for 401
-          console.log('401 response is not JSON:', responseText);
-        }
-      }
     });
 
-    test('should reject login with missing email', async () => {
+    test('should reject login with missing email', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      
       const res = await userClient.login({ 
-        password: testUser.password 
+        password: validUser.password 
       } as any);
       
-      // API behavior: Missing email returns 401 instead of 400
       expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
-      
-      const responseText = await res.text();
-      if (responseText) {
-        try {
-          const errorBody = JSON.parse(responseText);
-          expect(errorBody).toHaveProperty('error');
-        } catch (e) {
-          console.log('401 response is not JSON:', responseText);
-        }
-      }
     });
 
-    test('should reject login with missing password', async () => {
+    test('should reject login with missing password', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      
       const res = await userClient.login({ 
-        email: testUser.email 
+        email: validUser.email 
       } as any);
       
-      // API behavior: Missing password returns 401 instead of 400
       expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
-      
-      const responseText = await res.text();
-      if (responseText) {
-        try {
-          const errorBody = JSON.parse(responseText);
-          expect(errorBody).toHaveProperty('error');
-        } catch (e) {
-          console.log('401 response is not JSON:', responseText);
-        }
-      }
     });
 
-    test('should handle case-insensitive email login', async () => {
+    test('should handle case-insensitive email login', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      
       const res = await userClient.login({ 
-        email: testUser.email.toUpperCase(), 
-        password: testUser.password 
+        email: validUser.email.toUpperCase(), 
+        password: validUser.password 
       });
       
       expect(res.status()).toBe(HTTP_STATUS.OK);
       const responseBody = await res.json();
-      expect(responseBody.user.email.toLowerCase()).toBe(testUser.email.toLowerCase());
+      expect(responseBody.user.email.toLowerCase()).toBe(validUser.email.toLowerCase());
     });
   });
 
   test.describe('User Profile Management (GET /users/me)', () => {
-    let testUser: any;
-    let userClient: UserClient;
-
-    test.beforeEach(async ({ request }) => {
-      userClient = new UserClient(request);
-      testUser = UserFactory.generateValidUser();
+    test('should successfully retrieve user profile', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      await userClient.login({ email: validUser.email, password: validUser.password });
       
-      // Create and login test user
-      await userClient.register(testUser);
-      await userClient.login({ email: testUser.email, password: testUser.password });
-    });
-
-    test.afterEach(async () => {
-      try {
-        await userClient.delete();
-      } catch (error) {
-        console.log('Cleanup error:', error);
-      }
-    });
-
-    test('should successfully retrieve user profile', async () => {
       const res = await userClient.profile();
       
       expect(res.status()).toBe(HTTP_STATUS.OK);
@@ -370,20 +278,19 @@ test.describe('Complete User Management API Tests', () => {
 
       const profile = await res.json();
       
-      // Validate profile structure
       expect(profile).toHaveProperty('_id');
       expect(profile).toHaveProperty('firstName');
       expect(profile).toHaveProperty('lastName');
       expect(profile).toHaveProperty('email');
       expect(profile).not.toHaveProperty('password');
       
-      // Validate profile data
-      expect(profile.firstName).toBe(testUser.firstName);
-      expect(profile.lastName).toBe(testUser.lastName);
-      expect(profile.email.toLowerCase()).toBe(testUser.email.toLowerCase());
+      expect(profile.firstName).toBe(validUser.firstName);
+      expect(profile.lastName).toBe(validUser.lastName);
+      expect(profile.email.toLowerCase()).toBe(validUser.email.toLowerCase());
     });
 
     test('should reject profile request without authentication', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const unauthenticatedClient = new UserClient(request);
       
       const res = await unauthenticatedClient.profile();
@@ -391,6 +298,7 @@ test.describe('Complete User Management API Tests', () => {
     });
 
     test('should reject profile request with invalid token', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const invalidTokenClient = new UserClient(request);
       invalidTokenClient.token = 'invalid-token-12345';
       
@@ -400,27 +308,10 @@ test.describe('Complete User Management API Tests', () => {
   });
 
   test.describe('User Profile Update (PATCH /users/me)', () => {
-    let testUser: any;
-    let userClient: UserClient;
-
-    test.beforeEach(async ({ request }) => {
-      userClient = new UserClient(request);
-      testUser = UserFactory.generateValidUser();
+    test('should successfully update firstName', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      await userClient.login({ email: validUser.email, password: validUser.password });
       
-      // Create and login test user
-      await userClient.register(testUser);
-      await userClient.login({ email: testUser.email, password: testUser.password });
-    });
-
-    test.afterEach(async () => {
-      try {
-        await userClient.delete();
-      } catch (error) {
-        console.log('Cleanup error:', error);
-      }
-    });
-
-    test('should successfully update firstName', async () => {
       const updateData = { firstName: 'UpdatedFirstName' };
       
       const res = await userClient.updateProfile(updateData);
@@ -428,23 +319,29 @@ test.describe('Complete User Management API Tests', () => {
 
       const updatedProfile = await res.json();
       expect(updatedProfile.firstName).toBe(updateData.firstName);
-      expect(updatedProfile.lastName).toBe(testUser.lastName); // Should remain unchanged
-      expect(updatedProfile.email.toLowerCase()).toBe(testUser.email.toLowerCase());
+      expect(updatedProfile.lastName).toBe(validUser.lastName);
+      expect(updatedProfile.email.toLowerCase()).toBe(validUser.email.toLowerCase());
     });
 
-    test('should successfully update lastName', async () => {
+    test('should successfully update lastName', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      await userClient.login({ email: validUser.email, password: validUser.password });
+      
       const updateData = { lastName: 'UpdatedLastName' };
       
       const res = await userClient.updateProfile(updateData);
       expect(res.status()).toBe(HTTP_STATUS.OK);
 
       const updatedProfile = await res.json();
-      expect(updatedProfile.firstName).toBe(testUser.firstName); // Should remain unchanged
+      expect(updatedProfile.firstName).toBe(validUser.firstName);
       expect(updatedProfile.lastName).toBe(updateData.lastName);
-      expect(updatedProfile.email.toLowerCase()).toBe(testUser.email.toLowerCase());
+      expect(updatedProfile.email.toLowerCase()).toBe(validUser.email.toLowerCase());
     });
 
-    test('should successfully update both firstName and lastName', async () => {
+    test('should successfully update both firstName and lastName', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      await userClient.login({ email: validUser.email, password: validUser.password });
+      
       const updateData = { 
         firstName: 'NewFirstName',
         lastName: 'NewLastName'
@@ -456,10 +353,13 @@ test.describe('Complete User Management API Tests', () => {
       const updatedProfile = await res.json();
       expect(updatedProfile.firstName).toBe(updateData.firstName);
       expect(updatedProfile.lastName).toBe(updateData.lastName);
-      expect(updatedProfile.email.toLowerCase()).toBe(testUser.email.toLowerCase());
+      expect(updatedProfile.email.toLowerCase()).toBe(validUser.email.toLowerCase());
     });
 
-    test('should reject update with invalid email format', async () => {
+    test('should reject update with invalid email format', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      await userClient.login({ email: validUser.email, password: validUser.password });
+      
       const updateData = { email: 'invalid-email-format' };
       
       const res = await userClient.updateProfile(updateData);
@@ -470,97 +370,75 @@ test.describe('Complete User Management API Tests', () => {
     });
 
     test('should reject update without authentication', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const unauthenticatedClient = new UserClient(request);
       
       const res = await unauthenticatedClient.updateProfile({ firstName: 'Test' });
       expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
-    test('should handle empty update request', async () => {
+    test('should handle empty update request', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      await userClient.login({ email: validUser.email, password: validUser.password });
+      
       const res = await userClient.updateProfile({});
       expect(res.status()).toBe(HTTP_STATUS.OK);
       
       const profile = await res.json();
-      expect(profile.firstName).toBe(testUser.firstName);
-      expect(profile.lastName).toBe(testUser.lastName);
+      expect(profile.firstName).toBe(validUser.firstName);
+      expect(profile.lastName).toBe(validUser.lastName);
     });
   });
 
   test.describe('User Logout (POST /users/logout)', () => {
-    let testUser: any;
-    let userClient: UserClient;
-
-    test.beforeEach(async ({ request }) => {
-      userClient = new UserClient(request);
-      testUser = UserFactory.generateValidUser();
+    test('should successfully logout user', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      await userClient.login({ email: validUser.email, password: validUser.password });
       
-      // Create and login test user
-      await userClient.register(testUser);
-      await userClient.login({ email: testUser.email, password: testUser.password });
-    });
-
-    test.afterEach(async () => {
-      try {
-        await userClient.login({ email: testUser.email, password: testUser.password });
-        await userClient.delete();
-      } catch (error) {
-        console.log('Cleanup error:', error);
-      }
-    });
-
-    test('should successfully logout user', async () => {
       const res = await userClient.logout();
       expect(res.status()).toBe(HTTP_STATUS.OK);
 
-      // Verify token is invalidated by trying to access profile
       const profileRes = await userClient.profile();
       expect(profileRes.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should reject logout without authentication', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const unauthenticatedClient = new UserClient(request);
       
       const res = await unauthenticatedClient.logout();
       expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
-    test('should reject second logout attempt', async () => {
-      // First logout should succeed
+    test('should reject second logout attempt', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      await userClient.login({ email: validUser.email, password: validUser.password });
+      
       let res = await userClient.logout();
       expect(res.status()).toBe(HTTP_STATUS.OK);
 
-      // Second logout should fail
       res = await userClient.logout();
       expect(res.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
   });
 
   test.describe('User Deletion (DELETE /users/me)', () => {
-    let testUser: any;
-    let userClient: UserClient;
-
-    test.beforeEach(async ({ request }) => {
-      userClient = new UserClient(request);
-      testUser = UserFactory.generateValidUser();
+    test('should successfully delete user account', async ({ userClient, validUser }) => {
+      await userClient.register(validUser);
+      await userClient.login({ email: validUser.email, password: validUser.password });
       
-      // Create and login test user
-      await userClient.register(testUser);
-      await userClient.login({ email: testUser.email, password: testUser.password });
-    });
-
-    test('should successfully delete user account', async () => {
       const res = await userClient.delete();
       expect(res.status()).toBe(HTTP_STATUS.OK);
 
-      // Verify user is deleted by trying to login
       const loginRes = await userClient.login({ 
-        email: testUser.email, 
-        password: testUser.password 
+        email: validUser.email, 
+        password: validUser.password 
       });
       expect(loginRes.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
     });
 
     test('should reject deletion without authentication', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const unauthenticatedClient = new UserClient(request);
       
       const res = await unauthenticatedClient.delete();
@@ -568,6 +446,7 @@ test.describe('Complete User Management API Tests', () => {
     });
 
     test('should reject deletion with invalid token', async ({ request }) => {
+      const { UserClient } = await import('../clients/userClient');
       const invalidTokenClient = new UserClient(request);
       invalidTokenClient.token = 'invalid-token';
       
