@@ -17,8 +17,6 @@
     "test:staging:ui": "TEST_ENV=staging playwright test --project=ui-tests-chromium",
     "test:production:api": "TEST_ENV=production playwright test --project=api-tests",
     "test:qa:api": "TEST_ENV=qa playwright test --project=api-tests",
-    "test:staging": "node scripts/test-runner.js --env=staging",
-    "test:production": "node scripts/test-runner.js --env=production",
     "test:smoke": "node scripts/test-runner.js --type=smoke",
     "test:ci": "playwright test --reporter=github",
     "report": "playwright show-report",
