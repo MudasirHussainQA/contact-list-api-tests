@@ -166,21 +166,21 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: blob-report-chromium
-          path: ./all-blob-reports/blob-report-chromium
+          path: ./all-blob-reports
         continue-on-error: true
 
       - name: 📥 Download Firefox test results
         uses: actions/download-artifact@v4
         with:
           name: blob-report-firefox
-          path: ./all-blob-reports/blob-report-firefox
+          path: ./all-blob-reports
         continue-on-error: true
 
       - name: 📥 Download WebKit test results
         uses: actions/download-artifact@v4
         with:
           name: blob-report-webkit
-          path: ./all-blob-reports/blob-report-webkit
+          path: ./all-blob-reports
         continue-on-error: true
 
       - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
@@ -196,28 +196,36 @@ jobs:
           echo "📁 Organizing browser report..."
           mkdir -p ./pages-deploy/nightly-reports/${{ github.run_number }}/browser
           
-          BROWSER_COUNT=$(ls -d ./all-blob-reports/blob-report-* 2>/dev/null | wc -l)
-          echo "Found $BROWSER_COUNT browser test directories"
-          
-          if [ $BROWSER_COUNT -gt 0 ]; then
-            echo "✅ Found cross-browser test results - merging all browsers..."
+          echo "🔍 Checking downloaded artifacts..."
+          if [ -d "./all-blob-reports" ]; then
+            echo "Contents of all-blob-reports:"
+            ls -laR ./all-blob-reports
             
-            echo "🔄 Running merge-reports..."
-            npx playwright merge-reports --reporter html ./all-blob-reports
+            # Count actual report files
+            REPORT_COUNT=$(find ./all-blob-reports -name "*.zip" -o -name "*.jsonl" 2>/dev/null | wc -l)
+            echo "Found $REPORT_COUNT report files"
             
-            # Check if merge was successful
-            if [ -d "./playwright-report" ]; then
-              echo "✅ Merge successful, copying merged report..."
-              cp -r ./playwright-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
-              rm -rf ./playwright-report
+            if [ $REPORT_COUNT -gt 0 ]; then
+              echo "✅ Found blob reports - merging all browsers..."
+              
+              echo "🔄 Running merge-reports..."
+              npx playwright merge-reports --reporter html ./all-blob-reports
+              
+              # Check if merge was successful
+              if [ -d "./playwright-report" ]; then
+                echo "✅ Merge successful, copying merged report..."
+                cp -r ./playwright-report/* ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/
+                rm -rf ./playwright-report
+                echo "✅ Browser report organized successfully"
+                ls -la ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/ | head -10
+              else
+                echo "⚠️ Merge failed - no playwright-report directory created"
+              fi
             else
-              echo "⚠️ Merge may have failed, check logs for details"
+              echo "⚠️ No blob report files found in downloaded artifacts"
             fi
-            
-            echo "✅ Browser report organized successfully"
-            ls -la ./pages-deploy/nightly-reports/${{ github.run_number }}/browser/ | head -10
           else
-            echo "⚠️ No cross-browser test results found"
+            echo "⚠️ all-blob-reports directory does not exist"
           fi
       
       - name: 🌐 Setup GitHub Pages
