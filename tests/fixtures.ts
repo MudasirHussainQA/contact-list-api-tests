@@ -1,4 +1,4 @@
-import { test as base, Page, APIRequestContext } from '@playwright/test';
+import { test as base, Page, APIRequestContext, Browser } from '@playwright/test';
 import { SignupPage } from './ui/pages/signupPage';
 import { LoginPage } from './ui/pages/loginPage';
 import { ContactListPage } from './ui/pages/contactListPage';
@@ -13,14 +13,26 @@ import { ContactFactory } from './api/fixtures/contactFactory';
  * Provides reusable fixtures for both UI and API tests
  * 
  * Usage:
- * - UI Tests: test('description', async ({ signupPage, loginPage, contactListPage }) => { ... })
+ * - UI Tests (regular): test('description', async ({ signupPage, loginPage }) => { ... })
+ * - UI Tests (authenticated): test('description', async ({ authenticatedPage, contactListPage }) => { ... })
  * - API Tests: test('description', async ({ userClient, validUser }) => { ... })
+ * 
+ * 🔐 Storage State Feature:
+ * - Use 'authenticatedPage' fixture for tests that need pre-authenticated state
+ * - Use 'authenticatedContactListPage' for direct access to contact list when logged in
+ * - Skips login steps, making tests faster and more reliable
  */
 
 type UIFixtures = {
   signupPage: SignupPage;
   loginPage: LoginPage;
   contactListPage: ContactListPage;
+};
+
+type AuthenticatedUIFixtures = {
+  authenticatedPage: Page;
+  authenticatedContactListPage: ContactListPage;
+  authenticatedPageWithAPILogin: Page;
 };
 
 type APIFixtures = {
@@ -56,7 +68,7 @@ const testDataHelpers = {
   }),
 };
 
-export const test = base.extend<UIFixtures & APIFixtures & DataFixtures>({
+export const test = base.extend<UIFixtures & AuthenticatedUIFixtures & APIFixtures & DataFixtures>({
   /**
    * 📄 Signup Page Fixture
    * 
@@ -103,6 +115,116 @@ export const test = base.extend<UIFixtures & APIFixtures & DataFixtures>({
   contactListPage: async ({ page }, use: (value: ContactListPage) => Promise<void>) => {
     const contactListPage = new ContactListPage(page);
     await use(contactListPage);
+  },
+
+  /**
+   * 🔐 Authenticated Page Fixture
+   * 
+   * Provides a page with pre-authenticated state from storage
+   * Uses the storage state saved during setup to skip login
+   * 
+   * Note: Requires running the 'setup' project first or using a project
+   * with storageState configured
+   * 
+   * @example
+   * test('contact operations', async ({ authenticatedPage }) => {
+   *   await authenticatedPage.goto('/contactList');
+   *   // Already logged in, no need for login steps
+   * });
+   */
+  authenticatedPage: async ({ browser }, use: (value: Page) => Promise<void>) => {
+    // Create a new context with stored authentication state
+    const context = await browser.newContext({
+      storageState: '.auth/user.json',
+    });
+    const page = await context.newPage();
+    
+    await use(page);
+    
+    // Cleanup
+    await context.close();
+  },
+
+  /**
+   * 🔐 Authenticated Contact List Page Fixture
+   * 
+   * Provides a ContactListPage instance with pre-authenticated state
+   * Perfect for tests that work with contacts and don't need to test login
+   * 
+   * @example
+   * test('add contact', async ({ authenticatedContactListPage }) => {
+   *   await authenticatedContactListPage.navigateToContactList();
+   *   // Already logged in
+   *   await authenticatedContactListPage.addContact(contactData);
+   * });
+   */
+  authenticatedContactListPage: async ({ browser }, use: (value: ContactListPage) => Promise<void>) => {
+    // Create a new context with stored authentication state
+    const context = await browser.newContext({
+      storageState: '.auth/user.json',
+    });
+    const page = await context.newPage();
+    const contactListPage = new ContactListPage(page);
+    
+    await use(contactListPage);
+    
+    // Cleanup
+    await context.close();
+  },
+
+  /**
+   * 🔀 Authenticated Page with API Login Fixture
+   * 
+   * Hybrid approach: Authenticates via API, sets token in browser
+   * Faster than UI login, more flexible than storage state
+   * 
+   * Perfect for:
+   * - Tests that need unique users
+   * - Tests that need fresh auth state
+   * - Tests that want speed without shared state
+   * 
+   * @example
+   * test('feature test', async ({ authenticatedPageWithAPILogin, validUser }) => {
+   *   // Page is already authenticated via API
+   *   await authenticatedPageWithAPILogin.goto('/contactList');
+   *   // Test your feature
+   * });
+   */
+  authenticatedPageWithAPILogin: async ({ browser, request, validUser }, use: (value: Page) => Promise<void>) => {
+    // Create a new context and page
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    // Authenticate via API
+    const userClient = new UserClient(request);
+    await userClient.register(validUser);
+    const loginResponse = await userClient.login({
+      email: validUser.email,
+      password: validUser.password
+    });
+    
+    const { token } = await loginResponse.json();
+    
+    // Navigate to app first
+    await page.goto('/contactList');
+    
+    // Set token in localStorage
+    await page.evaluate((authToken) => {
+      localStorage.setItem('token', authToken);
+    }, token);
+    
+    // Reload to apply authentication
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    
+    // Provide the authenticated page
+    await use(page);
+    
+    // Cleanup
+    await userClient.delete().catch(() => {
+      // User might already be deleted in test
+    });
+    await context.close();
   },
 
   /**
