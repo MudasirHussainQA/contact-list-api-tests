@@ -46,8 +46,9 @@ test.describe('Hybrid Authentication - API + Browser Cookies', () => {
     
     // Step 3: Set the token in localStorage (or cookies depending on app)
     // Most apps store JWT tokens in localStorage or cookies
-    await page.evaluate((authToken) => {
-      localStorage.setItem('token', authToken);
+    await page.evaluate((authToken: string) => {
+      // @ts-expect-error - window is available in browser context
+      window.localStorage.setItem('token', authToken);
       // Alternative: Set as cookie
       // document.cookie = `token=${authToken}; path=/`;
     }, token);
@@ -85,10 +86,11 @@ test.describe('Hybrid Authentication - API + Browser Cookies', () => {
     await page.goto('/contactList');
     
     // Step 3: Set token in localStorage (most common for JWT tokens)
-    await page.evaluate((authToken) => {
-      localStorage.setItem('token', authToken);
+    await page.evaluate((authToken: string) => {
+      // @ts-expect-error - window is available in browser context
+      window.localStorage.setItem('token', authToken);
       // You can also set sessionStorage if needed
-      // sessionStorage.setItem('token', authToken);
+      // window.sessionStorage.setItem('token', authToken);
     }, token);
     
     console.log('💾 Token set in localStorage');
@@ -128,8 +130,9 @@ test.describe('Hybrid Authentication - API + Browser Cookies', () => {
     const { token } = await loginResponse.json();
     
     await page.goto('/contactList');
-    await page.evaluate((authToken) => {
-      localStorage.setItem('token', authToken);
+    await page.evaluate((authToken: string) => {
+      // @ts-expect-error - window is available in browser context
+      window.localStorage.setItem('token', authToken);
     }, token);
     await page.reload();
     
@@ -169,8 +172,9 @@ test.describe('Hybrid Authentication - API + Browser Cookies', () => {
     
     // Set authentication in browser
     await page.goto('/contactList');
-    await page.evaluate((authToken) => {
-      localStorage.setItem('token', authToken);
+    await page.evaluate((authToken: string) => {
+      // @ts-expect-error - window is available in browser context
+      window.localStorage.setItem('token', authToken);
     }, token);
     
     await page.reload();

@@ -209,8 +209,9 @@ export const test = base.extend<UIFixtures & AuthenticatedUIFixtures & APIFixtur
     await page.goto('/contactList');
     
     // Set token in localStorage
-    await page.evaluate((authToken) => {
-      localStorage.setItem('token', authToken);
+    await page.evaluate((authToken: string) => {
+      // @ts-expect-error - window is available in browser context
+      window.localStorage.setItem('token', authToken);
     }, token);
     
     // Reload to apply authentication
